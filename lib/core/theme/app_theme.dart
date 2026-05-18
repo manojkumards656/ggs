@@ -6,12 +6,13 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+      scaffoldBackgroundColor: const Color(0xFF0F0C29), 
       colorScheme: const ColorScheme.dark(
-        primary: Color(0xFF6C63FF),
-        secondary: Color(0xFF03DAC6),
-        surface: Color(0xFF1E1E2C),
+        primary: Color(0xFF00F2FE),
+        secondary: Color(0xFF4FACFE),
+        surface: Color(0xFF1E1E36),
       ),
-      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+      textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,

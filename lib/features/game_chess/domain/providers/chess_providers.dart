@@ -1,4 +1,3 @@
-import 'package:chess/chess.dart' as chess_lib;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum ChessPieceColor { white, black }

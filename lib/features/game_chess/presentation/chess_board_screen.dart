@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../domain/providers/chess_providers.dart';
 
 class ChessBoardScreen extends ConsumerStatefulWidget {
@@ -47,63 +48,76 @@ class _ChessBoardScreenState extends ConsumerState<ChessBoardScreen> {
     final isBlackTurn = gameState.currentTurn == ChessPieceColor.black;
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Pass & Play Chess'),
+        title: const Text('Pass & Play Chess', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
-      body: SafeArea(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            // Opponent's perspective indicator (Upside down so they can read it)
-            Transform.rotate(
-              angle: math.pi,
-              child: _buildStatusIndicator(
-                gameState, 
-                forBlackPlayer: true,
-              ),
-            ),
-            
-            // The Board Container
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: AspectRatio(
-                aspectRatio: 1.0,
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween<double>(
-                    begin: isBlackTurn ? 0.0 : math.pi,
-                    end: isBlackTurn ? math.pi : 0.0,
-                  ),
-                  duration: const Duration(milliseconds: 600),
-                  curve: Curves.easeInOutBack,
-                  builder: (context, value, child) {
-                    return Transform.rotate(
-                      angle: value,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha:0.3),
-                              blurRadius: 15,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                          border: Border.all(color: Colors.black87, width: 4),
-                        ),
-                        child: _buildBoard(gameState),
-                      ),
-                    );
-                  },
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0F0C29), Color(0xFF302B63), Color(0xFF24243E)],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              Transform.rotate(
+                angle: math.pi,
+                child: _buildStatusIndicator(
+                  gameState, 
+                  forBlackPlayer: true,
                 ),
-              ),
-            ),
-            
-            // Current player's perspective indicator
-            _buildStatusIndicator(
-              gameState, 
-              forBlackPlayer: false,
-            ),
-          ],
+              ).animate().fade().slideY(begin: -0.2),
+              
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: AspectRatio(
+                  aspectRatio: 1.0,
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween<double>(
+                      begin: isBlackTurn ? 0.0 : math.pi,
+                      end: isBlackTurn ? math.pi : 0.0,
+                    ),
+                    duration: const Duration(milliseconds: 600),
+                    curve: Curves.easeInOutBack,
+                    builder: (context, value, child) {
+                      return Transform.rotate(
+                        angle: value,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha:0.5),
+                                blurRadius: 24,
+                                offset: const Offset(0, 16),
+                              ),
+                            ],
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 4),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: _buildBoard(gameState),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ).animate().scale(curve: Curves.easeOutBack, delay: 200.ms).fade(),
+              
+              _buildStatusIndicator(
+                gameState, 
+                forBlackPlayer: false,
+              ).animate().fade().slideY(begin: 0.2),
+            ],
+          ),
         ),
       ),
     );

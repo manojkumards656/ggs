@@ -6,16 +6,20 @@ import 'package:pocket_party/features/host/domain/player.dart';
 import 'package:pocket_party/features/host/providers/lobby_provider.dart';
 import 'package:pocket_party/features/host/providers/game_loop_provider.dart';
 import 'package:pocket_party/features/game_draw/presentation/game_screen.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:uuid/uuid.dart';
+import 'package:pocket_party/features/game_chess/presentation/chess_board_screen.dart';
 
 class HostLobbyScreen extends ConsumerStatefulWidget {
   final String hostName;
   final String hostId;
+  final String gameName;
 
   const HostLobbyScreen({
     super.key,
     required this.hostName,
     required this.hostId,
+    required this.gameName,
   });
 
   @override
@@ -75,7 +79,7 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
         id: roomId,
         name: "${widget.hostName}'s Room",
         hostName: widget.hostName,
-        gameType: 'Draw & Guess',
+        gameType: widget.gameName,
         playersCount: 1, // Start with host
         maxPlayers: 8,
         tcpPort: _serverPort!,
@@ -110,10 +114,17 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
       'type': 'game_started',
     });
     
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const GameScreen(isHost: true)),
-    );
+    if (widget.gameName == 'Chess') {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const ChessBoardScreen()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const GameScreen(isHost: true)),
+      );
+    }
   }
 
   @override
@@ -130,13 +141,14 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Host Lobby'),
+        title: const Text('Host Lobby', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           if (_isServerRunning)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
               child: Center(
-                child: Text('Broadcasting...', style: TextStyle(color: Colors.greenAccent)),
+                child: const Text('Broadcasting...', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold))
+                    .animate(onPlay: (c) => c.repeat(reverse: true)).fade(),
               ),
             ),
         ],
@@ -146,17 +158,40 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
           Expanded(
             child: players.isEmpty
                 ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
+                : GridView.builder(
+                    padding: const EdgeInsets.all(24),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                    ),
                     itemCount: players.length,
                     itemBuilder: (context, index) {
                       final p = players[index];
-                      return ListTile(
-                        leading: CircleAvatar(
-                          child: Icon(p.isHost ? Icons.star : Icons.person),
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: p.isHost ? Theme.of(context).colorScheme.primary : Colors.transparent,
+                            width: 2,
+                          ),
                         ),
-                        title: Text(p.name, style: const TextStyle(fontSize: 18)),
-                        subtitle: Text(p.isHost ? 'Host' : 'Ready'),
-                      );
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircleAvatar(
+                              radius: 32,
+                              backgroundColor: p.isHost ? Theme.of(context).colorScheme.primary : Colors.grey.shade800,
+                              child: Icon(p.isHost ? Icons.star : Icons.person, size: 32, color: Colors.white),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(p.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                            Text(p.isHost ? 'Host' : 'Ready', style: TextStyle(color: p.isHost ? Theme.of(context).colorScheme.primary : Colors.greenAccent)),
+                          ],
+                        ),
+                      ).animate().scale(curve: Curves.easeOutBack).fade();
                     },
                   ),
           ),
@@ -164,15 +199,18 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
             padding: const EdgeInsets.all(32.0),
             child: SizedBox(
               width: double.infinity,
+              height: 60,
               child: ElevatedButton(
-                onPressed: players.isNotEmpty ? _startGame : null, // Can start solo for testing
+                onPressed: players.isNotEmpty ? _startGame : null,
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 child: const Text('START GAME'),
               ),
-            ),
+            ).animate().fade(delay: 300.ms).slideY(begin: 0.2),
           ),
         ],
       ),
