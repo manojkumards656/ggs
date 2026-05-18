@@ -8,6 +8,12 @@ import 'package:pocket_party/features/discovery/presentation/join_room_screen.da
 import 'package:pocket_party/features/settings/presentation/settings_screen.dart';
 import 'package:pocket_party/core/providers/preferences_provider.dart';
 import 'package:pocket_party/features/game_chess/presentation/chess_board_screen.dart';
+import 'package:pocket_party/features/game_connect4/presentation/connect4_screen.dart';
+import 'package:pocket_party/features/game_dots/presentation/screens/dots_screen.dart';
+import 'package:pocket_party/features/game_hangman/presentation/hangman_screen.dart';
+import 'package:pocket_party/features/game_reversi/presentation/reversi_screen.dart';
+import 'package:pocket_party/features/game_spyfall/presentation/spyfall_screen.dart';
+import 'package:pocket_party/features/game_tod/presentation/screens/tod_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
@@ -133,24 +139,33 @@ class HomeScreen extends ConsumerWidget {
                   },
                 ).animate().fade(delay: 400.ms).slideY(begin: 0.2),
                 
-                if (gameName == 'Chess') ...[
-                  const SizedBox(height: 16),
-                  _buildActionButton(
-                    context: context,
-                    icon: Icons.phone_android,
-                    label: 'PLAY ON SINGLE PHONE',
-                    gradient: const LinearGradient(colors: [Color(0xFF43E97B), Color(0xFF38F9D7)]),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ChessBoardScreen(),
-                        ),
-                      );
-                    },
-                  ).animate().fade(delay: 500.ms).slideY(begin: 0.2),
-                ],
+                const SizedBox(height: 16),
+                _buildActionButton(
+                  context: context,
+                  icon: Icons.phone_android,
+                  label: 'PLAY ON SINGLE PHONE',
+                  gradient: const LinearGradient(colors: [Color(0xFF43E97B), Color(0xFF38F9D7)]),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Widget nextScreen;
+                    switch (gameName) {
+                      case 'Chess': nextScreen = const ChessBoardScreen(); break;
+                      case 'Connect 4': nextScreen = const Connect4Screen(); break;
+                      case 'Dots & Boxes': nextScreen = const DotsScreen(); break;
+                      case 'Hangman': nextScreen = const HangmanScreen(isNetworked: false); break;
+                      case 'Reversi': nextScreen = const ReversiScreen(); break;
+                      case 'Spyfall': nextScreen = const SpyfallScreen(); break;
+                      case 'Truth or Dare': nextScreen = const TodScreen(); break;
+                      case 'Draw & Guess':
+                      default:
+                        nextScreen = const ChessBoardScreen(); // Fallback for draw which needs host
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => nextScreen),
+                    );
+                  },
+                ).animate().fade(delay: 500.ms).slideY(begin: 0.2),
                 const SizedBox(height: 20),
               ],
             ),
@@ -276,47 +291,77 @@ class HomeScreen extends ConsumerWidget {
                       _GameCard(
                         title: 'Draw & Guess',
                         icon: Icons.brush,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF0844), Color(0xFFFFB199)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        gradient: const LinearGradient(colors: [Color(0xFFFF0844), Color(0xFFFFB199)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                         onTap: () => _openGameDialog(context, ref, 'Draw & Guess'),
                       )
                       .animate(onPlay: (controller) => controller.repeat())
                       .shimmer(duration: 3000.ms, color: Colors.white.withValues(alpha: 0.1))
-                      .animate().fade(delay: 300.ms).scale(),
+                      .animate().fade(delay: 100.ms).scale(),
                       
                       _GameCard(
                         title: 'Chess',
                         icon: Icons.grid_on,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF43E97B), Color(0xFF38F9D7)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        gradient: const LinearGradient(colors: [Color(0xFF43E97B), Color(0xFF38F9D7)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                         onTap: () => _openGameDialog(context, ref, 'Chess'),
+                      ).animate().fade(delay: 200.ms).scale(),
+                      
+                      _GameCard(
+                        title: 'Connect 4',
+                        icon: Icons.view_comfy,
+                        gradient: const LinearGradient(colors: [Color(0xFFF9D423), Color(0xFFFF4E50)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                        onTap: () => _openGameDialog(context, ref, 'Connect 4'),
+                      ).animate().fade(delay: 300.ms).scale(),
+                      
+                      _GameCard(
+                        title: 'Hangman',
+                        icon: Icons.abc,
+                        gradient: const LinearGradient(colors: [Color(0xFF00C9FF), Color(0xFF92FE9D)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                        onTap: () => _openGameDialog(context, ref, 'Hangman'),
                       ).animate().fade(delay: 400.ms).scale(),
+                      
+                      _GameCard(
+                        title: 'Dots & Boxes',
+                        icon: Icons.timeline,
+                        gradient: const LinearGradient(colors: [Color(0xFF8A2387), Color(0xFFE94057)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                        onTap: () => _openGameDialog(context, ref, 'Dots & Boxes'),
+                      ).animate().fade(delay: 500.ms).scale(),
+
+                      _GameCard(
+                        title: 'Reversi',
+                        icon: Icons.tonality,
+                        gradient: const LinearGradient(colors: [Color(0xFF232526), Color(0xFF414345)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                        onTap: () => _openGameDialog(context, ref, 'Reversi'),
+                      ).animate().fade(delay: 600.ms).scale(),
                       
                       _GameCard(
                         title: 'Spyfall',
                         icon: Icons.search,
-                        gradient: LinearGradient(
-                          colors: [Colors.grey.shade800, Colors.grey.shade900],
-                        ),
-                        isComingSoon: true,
-                        onTap: () {},
-                      ).animate().fade(delay: 500.ms).scale(),
+                        gradient: const LinearGradient(colors: [Color(0xFF141E30), Color(0xFF243B55)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                        onTap: () => _openGameDialog(context, ref, 'Spyfall'),
+                      ).animate().fade(delay: 700.ms).scale(),
+
+                      _GameCard(
+                        title: 'Truth or Dare',
+                        icon: Icons.local_fire_department,
+                        gradient: const LinearGradient(colors: [Color(0xFFFF416C), Color(0xFFFF4B2B)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                        onTap: () => _openGameDialog(context, ref, 'Truth or Dare'),
+                      ).animate().fade(delay: 800.ms).scale(),
                       
                       _GameCard(
                         title: 'Trivia',
                         icon: Icons.quiz,
-                        gradient: LinearGradient(
-                          colors: [Colors.grey.shade800, Colors.grey.shade900],
-                        ),
+                        gradient: LinearGradient(colors: [Colors.grey.shade800, Colors.grey.shade900]),
                         isComingSoon: true,
                         onTap: () {},
-                      ).animate().fade(delay: 600.ms).scale(),
+                      ).animate().fade(delay: 900.ms).scale(),
+                      
+                      _GameCard(
+                        title: 'Memory',
+                        icon: Icons.dashboard,
+                        gradient: LinearGradient(colors: [Colors.grey.shade800, Colors.grey.shade900]),
+                        isComingSoon: true,
+                        onTap: () {},
+                      ).animate().fade(delay: 1000.ms).scale(),
                     ],
                   ),
                 ),

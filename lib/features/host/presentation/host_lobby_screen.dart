@@ -9,6 +9,12 @@ import 'package:pocket_party/features/game_draw/presentation/game_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:uuid/uuid.dart';
 import 'package:pocket_party/features/game_chess/presentation/chess_board_screen.dart';
+import 'package:pocket_party/features/game_connect4/presentation/connect4_screen.dart';
+import 'package:pocket_party/features/game_dots/presentation/screens/dots_screen.dart';
+import 'package:pocket_party/features/game_hangman/presentation/hangman_screen.dart';
+import 'package:pocket_party/features/game_reversi/presentation/reversi_screen.dart';
+import 'package:pocket_party/features/game_spyfall/presentation/spyfall_screen.dart';
+import 'package:pocket_party/features/game_tod/presentation/screens/tod_screen.dart';
 
 class HostLobbyScreen extends ConsumerStatefulWidget {
   final String hostName;
@@ -43,7 +49,6 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
     final tcpServer = ref.read(tcpServerProvider);
     final discovery = ref.read(udpDiscoveryProvider);
 
-    // 1. Add host to lobby
     final hostPlayer = Player(
       id: widget.hostId,
       name: widget.hostName,
@@ -52,20 +57,17 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
     ref.read(lobbyProvider.notifier).addPlayer(hostPlayer);
 
     try {
-      // 2. Start TCP Server on random port
       _serverPort = await tcpServer.startServer();
       setState(() {
         _isServerRunning = true;
       });
 
-      // 3. Listen to incoming messages
       tcpServer.messageStream.listen((msg) {
         if (msg['type'] == 'join') {
           final playerMsg = msg['player'] as Map<String, dynamic>;
           final player = Player.fromJson(playerMsg);
           ref.read(lobbyProvider.notifier).addPlayer(player);
           
-          // Broadcast updated lobby to all clients
           final updatedLobby = ref.read(lobbyProvider).map((p) => p.toJson()).toList();
           tcpServer.broadcastMessage({
             'type': 'lobby_update',
@@ -74,16 +76,15 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
         }
       });
 
-      // 4. Start UDP Discovery Broadcasting
       final room = Room(
         id: roomId,
         name: "${widget.hostName}'s Room",
         hostName: widget.hostName,
         gameType: widget.gameName,
-        playersCount: 1, // Start with host
+        playersCount: 1, 
         maxPlayers: 8,
         tcpPort: _serverPort!,
-        hostIp: '', // Added later by client when they receive it
+        hostIp: '', 
       );
       
       await discovery.startBroadcasting(room.toJson());
@@ -96,41 +97,50 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
     final tcpServer = ref.read(tcpServerProvider);
     final discovery = ref.read(udpDiscoveryProvider);
     
-    // Stop broadcasting since game is starting
     discovery.stopBroadcasting();
 
-    // Trigger game start logic in provider
-    // First player in lobby is drawer for round 1
     final players = ref.read(lobbyProvider);
     if (players.isEmpty) return;
     
     final drawerId = players.first.id;
-    final word = 'apple'; // TODO: random word selection
+    final word = 'apple'; 
     
     ref.read(gameLoopProvider.notifier).startGame(drawerId, word);
     
-    // Broadcast to clients
     tcpServer.broadcastMessage({
       'type': 'game_started',
     });
     
-    if (widget.gameName == 'Chess') {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const ChessBoardScreen()),
-      );
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const GameScreen(isHost: true)),
-      );
+    switch (widget.gameName) {
+      case 'Chess':
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ChessBoardScreen()));
+        break;
+      case 'Connect 4':
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const Connect4Screen()));
+        break;
+      case 'Dots & Boxes':
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DotsScreen()));
+        break;
+      case 'Hangman':
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HangmanScreen(isNetworked: true, isHost: true)));
+        break;
+      case 'Reversi':
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ReversiScreen()));
+        break;
+      case 'Spyfall':
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SpyfallScreen()));
+        break;
+      case 'Truth or Dare':
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const TodScreen()));
+        break;
+      case 'Draw & Guess':
+      default:
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const GameScreen(isHost: true)));
     }
   }
 
   @override
   void dispose() {
-    // Note: Do not dispose network managers here if we still need them in GameScreen
-    // Only stop discovery broadcasting
     ref.read(udpDiscoveryProvider).stopBroadcasting();
     super.dispose();
   }

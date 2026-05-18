@@ -7,6 +7,12 @@ import 'package:pocket_party/features/host/domain/player.dart';
 import 'package:pocket_party/features/host/providers/lobby_provider.dart';
 import 'package:pocket_party/features/game_draw/presentation/game_screen.dart';
 import 'package:pocket_party/features/game_chess/presentation/chess_board_screen.dart';
+import 'package:pocket_party/features/game_connect4/presentation/connect4_screen.dart';
+import 'package:pocket_party/features/game_dots/presentation/screens/dots_screen.dart';
+import 'package:pocket_party/features/game_hangman/presentation/hangman_screen.dart';
+import 'package:pocket_party/features/game_reversi/presentation/reversi_screen.dart';
+import 'package:pocket_party/features/game_spyfall/presentation/spyfall_screen.dart';
+import 'package:pocket_party/features/game_tod/presentation/screens/tod_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class ClientLobbyScreen extends ConsumerStatefulWidget {
@@ -42,23 +48,40 @@ class _ClientLobbyScreenState extends ConsumerState<ClientLobbyScreen> {
       if (type == 'lobby_update') {
         final playersList = msg['players'] as List;
         final players = playersList.map((p) => Player.fromJson(p)).toList();
-        
-        // Update lobby provider
         ref.read(lobbyProvider.notifier).setPlayers(players);
       } else if (type == 'game_started') {
-        if (widget.room.gameType == 'Chess') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const ChessBoardScreen()),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const GameScreen(isHost: false)),
-          );
-        }
+        _navigateToGame();
       }
     });
+  }
+
+  void _navigateToGame() {
+    switch (widget.room.gameType) {
+      case 'Chess':
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ChessBoardScreen()));
+        break;
+      case 'Connect 4':
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const Connect4Screen()));
+        break;
+      case 'Dots & Boxes':
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DotsScreen()));
+        break;
+      case 'Hangman':
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HangmanScreen(isNetworked: true, isHost: false)));
+        break;
+      case 'Reversi':
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ReversiScreen()));
+        break;
+      case 'Spyfall':
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SpyfallScreen()));
+        break;
+      case 'Truth or Dare':
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const TodScreen()));
+        break;
+      case 'Draw & Guess':
+      default:
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const GameScreen(isHost: false)));
+    }
   }
 
   @override
