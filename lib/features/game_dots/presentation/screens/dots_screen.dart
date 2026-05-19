@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../domain/models/dots_state.dart';
-import '../domain/providers/dots_provider.dart';
+import '../../domain/models/dots_state.dart';
+import '../../domain/providers/dots_provider.dart';
 
 class DotsScreen extends ConsumerStatefulWidget {
   const DotsScreen({super.key});
@@ -97,7 +97,7 @@ class _DotsScreenState extends ConsumerState<DotsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: BoxDecoration(
-        color: isActive ? color : color.withOpacity(0.3),
+        color: isActive ? color : color.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16),
         border: isActive ? Border.all(color: Colors.white, width: 2) : null,
       ),
@@ -162,7 +162,7 @@ class _DotsScreenState extends ConsumerState<DotsScreen> {
                   height: lineThickness,
                   width: lineLength,
                   decoration: BoxDecoration(
-                    color: isDrawn ? Colors.white : Colors.white.withOpacity(0.1),
+                    color: isDrawn ? Colors.white : Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(lineThickness / 2),
                   ),
                 ).animate(target: isDrawn ? 1 : 0)
@@ -192,7 +192,7 @@ class _DotsScreenState extends ConsumerState<DotsScreen> {
                   width: lineThickness,
                   height: lineLength,
                   decoration: BoxDecoration(
-                    color: isDrawn ? Colors.white : Colors.white.withOpacity(0.1),
+                    color: isDrawn ? Colors.white : Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(lineThickness / 2),
                   ),
                 ).animate(target: isDrawn ? 1 : 0)
@@ -233,7 +233,7 @@ class _DotsScreenState extends ConsumerState<DotsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
