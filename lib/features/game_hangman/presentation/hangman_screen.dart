@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/providers/network_providers.dart';
-import '../providers/hangman_provider.dart';
-import '../domain/hangman_state.dart';
+import '../domain/providers/hangman_provider.dart';
+import '../domain/models/hangman_state.dart';
 import 'hangman_figure.dart';
 
 class HangmanScreen extends ConsumerStatefulWidget {

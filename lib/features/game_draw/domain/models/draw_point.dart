@@ -18,7 +18,7 @@ class DrawPoint {
     return {
       'x': point!.dx,
       'y': point!.dy,
-      'c': color.value,
+      'c': color.toARGB32(),
       'w': strokeWidth,
     };
   }

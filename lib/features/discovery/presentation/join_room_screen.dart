@@ -22,7 +22,9 @@ class JoinRoomScreen extends ConsumerStatefulWidget {
 
 class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
   final Map<String, Room> _discoveredRooms = {};
+  final Map<String, DateTime> _lastSeen = {}; // Track when each room was last seen
   StreamSubscription? _discoverySub;
+  Timer? _cleanupTimer; // Periodic timer to prune stale rooms
   bool _isConnecting = false;
 
   @override
@@ -43,9 +45,30 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
         final room = Room.fromJson(msg);
         setState(() {
           _discoveredRooms[room.id] = room;
+          _lastSeen[room.id] = DateTime.now();
         });
       } catch (e) {
         debugPrint('Failed to parse room: $e');
+      }
+    });
+
+    // Prune stale rooms every 3 seconds — removes rooms not seen for 6+ seconds.
+    // This prevents users from trying to join hosts that have gone offline.
+    _cleanupTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted) return;
+      final now = DateTime.now();
+      final staleIds = _lastSeen.entries
+          .where((e) => now.difference(e.value).inSeconds >= 6)
+          .map((e) => e.key)
+          .toList();
+
+      if (staleIds.isNotEmpty) {
+        setState(() {
+          for (final id in staleIds) {
+            _discoveredRooms.remove(id);
+            _lastSeen.remove(id);
+          }
+        });
       }
     });
   }
@@ -96,6 +119,7 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
   @override
   void dispose() {
     _discoverySub?.cancel();
+    _cleanupTimer?.cancel();
     ref.read(udpDiscoveryProvider).stopListening();
     super.dispose();
   }

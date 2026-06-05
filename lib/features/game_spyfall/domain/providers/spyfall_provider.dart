@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../domain/spyfall_state.dart';
+import '../models/spyfall_state.dart';
 
 const List<String> _locations = [
   'Airplane',

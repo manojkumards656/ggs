@@ -43,6 +43,7 @@ class Room {
 
   Map<String, dynamic> toJson() {
     return {
+      'type': 'discovery',
       'id': id,
       'name': name,
       'hostName': hostName,

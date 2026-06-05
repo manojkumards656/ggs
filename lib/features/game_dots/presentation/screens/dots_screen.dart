@@ -23,7 +23,6 @@ class _DotsScreenState extends ConsumerState<DotsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(dotsProvider);
-    final isNetworked = state.mode == DotsMode.networked;
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A2E),

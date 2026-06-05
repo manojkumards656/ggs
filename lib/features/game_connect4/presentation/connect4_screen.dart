@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../domain/connect4_state.dart';
+import '../domain/providers/connect4_provider.dart';
 
 class Connect4Screen extends ConsumerWidget {
   const Connect4Screen({super.key});
@@ -62,8 +62,8 @@ class Connect4Screen extends ConsumerWidget {
                 shadows: [
                   Shadow(
                     color: state.winner == 0
-                        ? getPlayerColor(state.currentPlayer).withOpacity(0.5)
-                        : (state.winner > 0 ? getPlayerColor(state.winner).withOpacity(0.5) : Colors.transparent),
+                        ? getPlayerColor(state.currentPlayer).withValues(alpha: 0.5)
+                        : (state.winner > 0 ? getPlayerColor(state.winner).withValues(alpha: 0.5) : Colors.transparent),
                     blurRadius: 10,
                   )
                 ],
@@ -88,12 +88,12 @@ class Connect4Screen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.5),
+                            color: Colors.black.withValues(alpha: 0.5),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
                           BoxShadow(
-                            color: Colors.white.withOpacity(0.05),
+                            color: Colors.white.withValues(alpha: 0.05),
                             blurRadius: 2,
                             offset: const Offset(0, 1),
                           )
@@ -126,7 +126,7 @@ class Connect4Screen extends ConsumerWidget {
                                                 shape: BoxShape.circle,
                                                 gradient: RadialGradient(
                                                   colors: [
-                                                    getPlayerColor(cellValue).withOpacity(0.7),
+                                                    getPlayerColor(cellValue).withValues(alpha: 0.7),
                                                     getPlayerColor(cellValue),
                                                   ],
                                                   center: Alignment.topLeft,
@@ -134,7 +134,7 @@ class Connect4Screen extends ConsumerWidget {
                                                 ),
                                                 boxShadow: [
                                                   BoxShadow(
-                                                    color: getPlayerColor(cellValue).withOpacity(isWinningCell ? 0.8 : 0.4),
+                                                    color: getPlayerColor(cellValue).withValues(alpha: isWinningCell ? 0.8 : 0.4),
                                                     blurRadius: isWinningCell ? 15 : 6,
                                                     spreadRadius: isWinningCell ? 3 : 1,
                                                   )

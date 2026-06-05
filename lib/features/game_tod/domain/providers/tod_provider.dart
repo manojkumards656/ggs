@@ -72,35 +72,48 @@ const List<String> dares = [
 ];
 
 class TodNotifier extends Notifier<TodState> {
-  StreamSubscription? _clientSubscription;
-  StreamSubscription? _serverSubscription;
+  StreamSubscription? _networkSubscription;
+  bool _isHost = false;
+
+  // Cancellable timer replaces the old Future.delayed which could fire after
+  // the provider was disposed, causing "setState after dispose" crashes.
+  Timer? _spinTimer;
 
   @override
   TodState build() {
     _listenToNetwork();
+
+    ref.onDispose(() {
+      _networkSubscription?.cancel();
+      _spinTimer?.cancel();
+    });
+
     return const TodState();
   }
 
+  /// Set the host role for network subscriptions.
+  void setHost(bool isHost) {
+    _isHost = isHost;
+  }
+
   void _listenToNetwork() {
-    final clientManager = ref.read(tcpClientProvider);
-    final serverManager = ref.read(tcpServerProvider);
-
-    _clientSubscription = clientManager.messageStream.listen((msg) {
-      if (msg['type'] == 'tod_spin') {
-        _handleIncomingSpin(msg);
-      }
-    });
-
-    _serverSubscription = serverManager.messageStream.listen((msg) {
-      if (msg['type'] == 'tod_spin') {
-        _handleIncomingSpin(msg);
-      }
-    });
-
-    ref.onDispose(() {
-      _clientSubscription?.cancel();
-      _serverSubscription?.cancel();
-    });
+    // Only subscribe to the relevant stream based on role.
+    // Host listens to server stream, client listens to client stream.
+    if (_isHost) {
+      final serverManager = ref.read(tcpServerProvider);
+      _networkSubscription = serverManager.messageStream.listen((msg) {
+        if (msg['type'] == 'tod_spin') {
+          _handleIncomingSpin(msg);
+        }
+      });
+    } else {
+      final clientManager = ref.read(tcpClientProvider);
+      _networkSubscription = clientManager.messageStream.listen((msg) {
+        if (msg['type'] == 'tod_spin') {
+          _handleIncomingSpin(msg);
+        }
+      });
+    }
   }
 
   void _handleIncomingSpin(Map<String, dynamic> msg) {
@@ -118,9 +131,7 @@ class TodNotifier extends Notifier<TodState> {
         currentPromptText: promptText,
       );
 
-      Future.delayed(const Duration(seconds: 3), () {
-        state = state.copyWith(isSpinning: false);
-      });
+      _startSpinTimer();
     }
   }
 
@@ -160,7 +171,7 @@ class TodNotifier extends Notifier<TodState> {
       currentPromptText: promptText,
     );
 
-    // Broadcast if networked
+    // Broadcast if networked — host broadcasts, client sends to host
     if (state.mode == TodMode.networked) {
       final msg = {
         'type': 'tod_spin',
@@ -169,14 +180,21 @@ class TodNotifier extends Notifier<TodState> {
         'playerId': playerId,
         'playerName': playerName,
       };
-      ref.read(tcpServerProvider).broadcastMessage(msg);
-      // We don't send to client if we are host, server manager broadcasts to all clients.
-      // If client triggered it (not supposed to according to prompt, only host), they would send to server.
-      // But we just broadcast as server if possible.
-      ref.read(tcpClientProvider).sendMessage(msg);
+      if (_isHost) {
+        ref.read(tcpServerProvider).broadcastMessage(msg);
+      } else {
+        ref.read(tcpClientProvider).sendMessage(msg);
+      }
     }
 
-    Future.delayed(const Duration(seconds: 3), () {
+    _startSpinTimer();
+  }
+
+  /// Starts a cancellable 3-second timer that ends the spin animation.
+  /// Cancels any previous timer to prevent overlapping callbacks.
+  void _startSpinTimer() {
+    _spinTimer?.cancel();
+    _spinTimer = Timer(const Duration(seconds: 3), () {
       state = state.copyWith(isSpinning: false);
     });
   }

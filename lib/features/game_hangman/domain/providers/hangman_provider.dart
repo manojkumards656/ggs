@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../domain/hangman_state.dart';
+import '../models/hangman_state.dart';
 
 class HangmanNotifier extends Notifier<HangmanState> {
   @override

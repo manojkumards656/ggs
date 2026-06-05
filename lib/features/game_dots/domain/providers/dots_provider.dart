@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/providers/network_providers.dart';
-import '../../host/providers/lobby_provider.dart';
+import 'package:pocket_party/core/providers/network_providers.dart';
+import 'package:pocket_party/features/host/providers/lobby_provider.dart';
 import '../models/dots_state.dart';
 
 class DotsNotifier extends Notifier<DotsState> {
-  StreamSubscription? _clientSubscription;
-  StreamSubscription? _serverSubscription;
+  StreamSubscription? _networkSubscription;
+  bool _isHost = false;
 
   @override
   DotsState build() {
@@ -15,24 +15,29 @@ class DotsNotifier extends Notifier<DotsState> {
   }
 
   void _listenToNetwork() {
-    final clientManager = ref.read(tcpClientProvider);
-    final serverManager = ref.read(tcpServerProvider);
-
-    _clientSubscription = clientManager.messageStream.listen((msg) {
-      if (msg['type'] == 'dots_draw') {
-        _handleIncomingDraw(msg);
-      }
-    });
-
-    _serverSubscription = serverManager.messageStream.listen((msg) {
-      if (msg['type'] == 'dots_draw') {
-        _handleIncomingDraw(msg);
-      }
-    });
+    // Only subscribe to the relevant stream based on role.
+    // Host listens to the server stream (receives from clients).
+    // Client listens to the client stream (receives from host).
+    // This prevents duplicate message processing that occurred
+    // when both streams were subscribed simultaneously.
+    if (_isHost) {
+      final serverManager = ref.read(tcpServerProvider);
+      _networkSubscription = serverManager.messageStream.listen((msg) {
+        if (msg['type'] == 'dots_draw') {
+          _handleIncomingDraw(msg);
+        }
+      });
+    } else {
+      final clientManager = ref.read(tcpClientProvider);
+      _networkSubscription = clientManager.messageStream.listen((msg) {
+        if (msg['type'] == 'dots_draw') {
+          _handleIncomingDraw(msg);
+        }
+      });
+    }
 
     ref.onDispose(() {
-      _clientSubscription?.cancel();
-      _serverSubscription?.cancel();
+      _networkSubscription?.cancel();
     });
   }
 
@@ -50,6 +55,12 @@ class DotsNotifier extends Notifier<DotsState> {
 
   void setMode(DotsMode mode) {
     state = state.copyWith(mode: mode);
+  }
+
+  /// Set the host role for network subscriptions.
+  /// Must be called before initializeGame() for networked mode.
+  void setHost(bool isHost) {
+    _isHost = isHost;
   }
 
   void initializeGame() {
@@ -79,9 +90,7 @@ class DotsNotifier extends Notifier<DotsState> {
     
     // In networked mode, only allow the active player to draw on their own device
     if (state.mode == DotsMode.networked) {
-       final localPlayerId = ref.read(preferencesProvider).getString('deviceId'); 
-       // Note: We might need to check if local player matches active player if we had a full auth/device ID system,
-       // but for now we just draw it and broadcast. To be robust, let's assume UI handles disablement or we just pass it.
+       // TODO: Validate that localPlayerId matches activePlayerId for proper turn enforcement
     }
 
     _drawLine(isHorizontal, row, col, isLocal: true, explicitPlayerId: state.activePlayerId);
@@ -153,7 +162,7 @@ class DotsNotifier extends Notifier<DotsState> {
         final players = ref.read(lobbyProvider);
         if (players.isNotEmpty) {
           int currentIndex = players.indexWhere((p) => p.id == state.activePlayerId);
-          int nextIndex = (currentIndex + 1) % players.length;
+          int nextIndex = ((currentIndex + 1) % players.length).toInt();
           nextPlayerId = players[nextIndex].id;
           nextPlayerName = players[nextIndex].name;
         }
@@ -204,8 +213,12 @@ class DotsNotifier extends Notifier<DotsState> {
         'col': col,
         'playerId': playerId,
       };
-      ref.read(tcpServerProvider).broadcastMessage(msg);
-      ref.read(tcpClientProvider).sendMessage(msg);
+      // Host broadcasts to all clients; client sends to host only
+      if (_isHost) {
+        ref.read(tcpServerProvider).broadcastMessage(msg);
+      } else {
+        ref.read(tcpClientProvider).sendMessage(msg);
+      }
     }
   }
 }

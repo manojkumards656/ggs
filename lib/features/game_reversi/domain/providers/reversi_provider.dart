@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../domain/reversi_game_state.dart';
+import '../models/reversi_game_state.dart';
 
 class ReversiNotifier extends Notifier<ReversiGameState> {
   @override
@@ -117,7 +117,9 @@ class ReversiNotifier extends Notifier<ReversiGameState> {
     if (isGameOver) {
       if (black > white) {
         winner = PlayerColor.black;
-      } else if (white > black) winner = PlayerColor.white;
+      } else if (white > black) {
+        winner = PlayerColor.white;
+      }
     }
 
     state = state.copyWith(

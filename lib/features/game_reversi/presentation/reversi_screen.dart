@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../domain/reversi_game_state.dart';
-import '../providers/reversi_provider.dart';
+import '../domain/models/reversi_game_state.dart';
+import '../domain/providers/reversi_provider.dart';
 
 class ReversiScreen extends ConsumerStatefulWidget {
   const ReversiScreen({super.key});
@@ -149,7 +149,7 @@ class _ScoreCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: isTurn ? Border.all(color: Colors.amber, width: 3) : Border.all(color: Colors.transparent, width: 3),
         boxShadow: [
-          if (isTurn) BoxShadow(color: Colors.amber.withOpacity(0.6), blurRadius: 12, spreadRadius: 2),
+          if (isTurn) BoxShadow(color: Colors.amber.withValues(alpha: 0.6), blurRadius: 12, spreadRadius: 2),
           const BoxShadow(color: Colors.black45, blurRadius: 6, offset: Offset(2, 4))
         ]
       ),

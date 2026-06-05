@@ -2,8 +2,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../domain/spyfall_state.dart';
-import '../providers/spyfall_provider.dart';
+import '../domain/models/spyfall_state.dart';
+import '../domain/providers/spyfall_provider.dart';
 
 class SpyfallScreen extends ConsumerWidget {
   const SpyfallScreen({super.key});
@@ -213,10 +213,10 @@ class SpyfallScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: accentColor.withOpacity(0.3), width: 2),
+        border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 2),
         boxShadow: [
           BoxShadow(
-            color: accentColor.withOpacity(0.1),
+            color: accentColor.withValues(alpha: 0.1),
             blurRadius: 30,
             spreadRadius: 5,
           ),
@@ -225,7 +225,7 @@ class SpyfallScreen extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.fingerprint, size: 80, color: accentColor.withOpacity(0.5))
+          Icon(Icons.fingerprint, size: 80, color: accentColor.withValues(alpha: 0.5))
               .animate(onPlay: (controller) => controller.repeat(reverse: true))
               .fade(duration: 1.seconds, begin: 0.3, end: 0.7),
           const SizedBox(height: 32),
@@ -233,7 +233,7 @@ class SpyfallScreen extends ConsumerWidget {
             'TAP TO REVEAL\nYOUR ROLE',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: textColor.withOpacity(0.7),
+              color: textColor.withValues(alpha: 0.7),
               fontSize: 18,
               fontWeight: FontWeight.bold,
               letterSpacing: 2.0,
@@ -267,7 +267,7 @@ class SpyfallScreen extends ConsumerWidget {
         border: Border.all(color: displayColor, width: 3),
         boxShadow: [
           BoxShadow(
-            color: displayColor.withOpacity(0.2),
+            color: displayColor.withValues(alpha: 0.2),
             blurRadius: 30,
             spreadRadius: 5,
           ),
@@ -288,7 +288,7 @@ class SpyfallScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
                 Text(
                   isSpy ? 'YOU ARE THE' : 'LOCATION',
-                  style: TextStyle(color: textColor.withOpacity(0.5), fontSize: 14, letterSpacing: 2.0),
+                  style: TextStyle(color: textColor.withValues(alpha: 0.5), fontSize: 14, letterSpacing: 2.0),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -305,7 +305,7 @@ class SpyfallScreen extends ConsumerWidget {
                 Text(
                   subText,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: textColor.withOpacity(0.8), fontSize: 16),
+                  style: TextStyle(color: textColor.withValues(alpha: 0.8), fontSize: 16),
                 ).animate().fadeIn(delay: 400.ms),
               ],
             ),

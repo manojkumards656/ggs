@@ -2,76 +2,121 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+/// Manages a TCP server for the host device, handling multiple client connections.
+///
+/// Why raw ServerSocket over a web server framework: Zero dependency overhead.
+/// Dart's ServerSocket is extremely lightweight and handles persistent
+/// connections natively without needing HTTP abstractions.
 class TcpServerManager {
   ServerSocket? _serverSocket;
   final List<Socket> _clients = [];
-  
-  // Stream controller to emit incoming messages from any client
+  // Track subscriptions per client so we can cancel them cleanly
+  final Map<Socket, StreamSubscription> _clientSubscriptions = {};
+
+  // Broadcast controller so multiple listeners can subscribe
   final _messageController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get messageStream => _messageController.stream;
 
+  /// The port the server is bound to, or null if not running.
+  int? get serverPort => _serverSocket?.port;
+
+  /// Whether the server is currently running.
+  bool get isRunning => _serverSocket != null;
+
   /// Starts the TCP server on any available port (or specified port).
   /// Returns the port the server bound to.
+  ///
+  /// Sets TCP_NODELAY on each accepted client socket to eliminate
+  /// Nagle's algorithm buffering delay (up to 200ms per small message).
   Future<int> startServer({int port = 0}) async {
     _serverSocket = await ServerSocket.bind(InternetAddress.anyIPv4, port);
-    
+
     _serverSocket?.listen((Socket client) {
+      client.setOption(SocketOption.tcpNoDelay, true);
       _clients.add(client);
-      
-      // Listen to the client stream, splitting by newline for JSON lines
-      client.cast<List<int>>()
+
+      // Store the subscription so we can cancel it individually
+      final sub = client
+          .cast<List<int>>()
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen(
         (String data) {
           try {
             final Map<String, dynamic> jsonMsg = jsonDecode(data);
-            _messageController.add(jsonMsg);
+            if (!_messageController.isClosed) {
+              _messageController.add(jsonMsg);
+            }
           } catch (e) {
             print('Error parsing client message: $e');
           }
         },
         onError: (error) {
           print('Client error: $error');
-          _clients.remove(client);
-          client.close();
+          _removeClient(client);
         },
         onDone: () {
           print('Client disconnected.');
-          _clients.remove(client);
-          client.close();
+          _removeClient(client);
         },
       );
+
+      _clientSubscriptions[client] = sub;
     });
 
     return _serverSocket!.port;
   }
 
+  /// Safely removes a client and cancels its subscription.
+  void _removeClient(Socket client) {
+    _clientSubscriptions[client]?.cancel();
+    _clientSubscriptions.remove(client);
+    _clients.remove(client);
+    try {
+      client.close();
+    } catch (_) {}
+  }
+
   /// Sends a JSON message to all connected clients.
+  ///
+  /// Uses List.from() to iterate over a snapshot of the client list,
+  /// avoiding ConcurrentModificationException if a client disconnects
+  /// mid-broadcast (the onError/onDone callbacks modify _clients).
   void broadcastMessage(Map<String, dynamic> message) {
     final payloadString = jsonEncode(message);
-    // Append newline delimiter as per protocol
     final payloadBytes = utf8.encode('$payloadString\n');
-    
-    for (final client in _clients) {
+
+    for (final client in List.from(_clients)) {
       try {
         client.add(payloadBytes);
       } catch (e) {
         print('Error broadcasting to client: $e');
+        _removeClient(client);
       }
     }
   }
 
   /// Stop the server and disconnect all clients.
+  ///
+  /// Cancels all subscriptions BEFORE destroying sockets to prevent
+  /// events firing on closed controllers.
   Future<void> stopServer() async {
+    // Cancel all client subscriptions first
+    for (final sub in _clientSubscriptions.values) {
+      await sub.cancel();
+    }
+    _clientSubscriptions.clear();
+
     for (final client in _clients) {
       client.destroy();
     }
     _clients.clear();
+
     await _serverSocket?.close();
     _serverSocket = null;
   }
-  
+
+  /// Full cleanup — call when the manager is no longer needed.
   void dispose() {
     stopServer();
     _messageController.close();

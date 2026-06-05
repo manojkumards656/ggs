@@ -1,20 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pocket_party/core/providers/network_providers.dart';
+import 'package:pocket_party/core/game_registry.dart';
 import 'package:pocket_party/features/discovery/domain/room.dart';
 import 'package:pocket_party/features/host/domain/player.dart';
 import 'package:pocket_party/features/host/providers/lobby_provider.dart';
 import 'package:pocket_party/features/host/providers/game_loop_provider.dart';
-import 'package:pocket_party/features/game_draw/presentation/game_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:uuid/uuid.dart';
-import 'package:pocket_party/features/game_chess/presentation/chess_board_screen.dart';
-import 'package:pocket_party/features/game_connect4/presentation/connect4_screen.dart';
-import 'package:pocket_party/features/game_dots/presentation/screens/dots_screen.dart';
-import 'package:pocket_party/features/game_hangman/presentation/hangman_screen.dart';
-import 'package:pocket_party/features/game_reversi/presentation/reversi_screen.dart';
-import 'package:pocket_party/features/game_spyfall/presentation/spyfall_screen.dart';
-import 'package:pocket_party/features/game_tod/presentation/screens/tod_screen.dart';
 
 class HostLobbyScreen extends ConsumerStatefulWidget {
   final String hostName;
@@ -36,6 +30,7 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
   final String roomId = const Uuid().v4();
   int? _serverPort;
   bool _isServerRunning = false;
+  StreamSubscription? _tcpMessageSub;
 
   @override
   void initState() {
@@ -62,7 +57,8 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
         _isServerRunning = true;
       });
 
-      tcpServer.messageStream.listen((msg) {
+      _tcpMessageSub = tcpServer.messageStream.listen((msg) {
+        if (!mounted) return;
         if (msg['type'] == 'join') {
           final playerMsg = msg['player'] as Map<String, dynamic>;
           final player = Player.fromJson(playerMsg);
@@ -111,37 +107,28 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
       'type': 'game_started',
     });
     
-    switch (widget.gameName) {
-      case 'Chess':
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ChessBoardScreen()));
-        break;
-      case 'Connect 4':
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const Connect4Screen()));
-        break;
-      case 'Dots & Boxes':
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DotsScreen()));
-        break;
-      case 'Hangman':
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HangmanScreen(isNetworked: true, isHost: true)));
-        break;
-      case 'Reversi':
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ReversiScreen()));
-        break;
-      case 'Spyfall':
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SpyfallScreen()));
-        break;
-      case 'Truth or Dare':
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const TodScreen()));
-        break;
-      case 'Draw & Guess':
-      default:
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const GameScreen(isHost: true)));
+    // Registry-based routing — no switch statement needed.
+    // The game declares its own screen builder in game_registry.dart.
+    final game = findGameByName(widget.gameName);
+    if (game?.networkScreenBuilder != null) {
+      final screen = game!.networkScreenBuilder!(isHost: true);
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => screen));
+    } else {
+      // Defensive fallback — shouldn't happen if registry is set up correctly
+      debugPrint('No network screen builder found for: ${widget.gameName}');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${widget.gameName} does not support network mode')),
+        );
+      }
     }
   }
 
   @override
   void dispose() {
+    _tcpMessageSub?.cancel();
     ref.read(udpDiscoveryProvider).stopBroadcasting();
+    ref.read(tcpServerProvider).stopServer();
     super.dispose();
   }
 
