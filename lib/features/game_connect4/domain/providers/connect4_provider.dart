@@ -52,7 +52,8 @@ class Connect4Notifier extends Notifier<Connect4State> {
 
   void handleNetworkPayload(Map<String, dynamic> data) {
     if (data['type'] == 'connect4_move') {
-      int col = data['col'] as int;
+      final col = data['col'];
+      if (col is! int || col < 0 || col >= cols) return;
       _applyMove(col);
     } else if (data['type'] == 'connect4_reset') {
       resetGame();

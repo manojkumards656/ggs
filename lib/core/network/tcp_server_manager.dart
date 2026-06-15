@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'tcp_framing.dart';
 
 /// Manages a TCP server for the host device, handling multiple client connections.
 ///
@@ -36,10 +37,11 @@ class TcpServerManager {
       _clients.add(client);
 
       // Store the subscription so we can cancel it individually
+      // Uses LengthPrefixedFrameDecoder instead of utf8.decoder + LineSplitter
+      // to correctly handle TCP stream semantics (partial reads, coalesced writes).
       final sub = client
           .cast<List<int>>()
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
+          .transform(const LengthPrefixedFrameDecoder())
           .listen(
         (String data) {
           try {
@@ -82,9 +84,10 @@ class TcpServerManager {
   /// Uses List.from() to iterate over a snapshot of the client list,
   /// avoiding ConcurrentModificationException if a client disconnects
   /// mid-broadcast (the onError/onDone callbacks modify _clients).
+  /// H3 note: _removeClient() in the catch block is safe because we iterate
+  /// over the snapshot copy, not the live _clients list.
   void broadcastMessage(Map<String, dynamic> message) {
-    final payloadString = jsonEncode(message);
-    final payloadBytes = utf8.encode('$payloadString\n');
+    final payloadBytes = encodeFrame(message);
 
     for (final client in List.from(_clients)) {
       try {
@@ -117,8 +120,11 @@ class TcpServerManager {
   }
 
   /// Full cleanup — call when the manager is no longer needed.
-  void dispose() {
-    stopServer();
+  ///
+  /// Awaits [stopServer] to ensure all client subscriptions are cancelled
+  /// before closing the message controller.
+  Future<void> dispose() async {
+    await stopServer();
     _messageController.close();
   }
 }

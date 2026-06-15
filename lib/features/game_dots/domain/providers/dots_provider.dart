@@ -64,23 +64,25 @@ class DotsNotifier extends Notifier<DotsState> {
   }
 
   void initializeGame() {
-    state = const DotsState(
-      mode: DotsMode.passAndPlay,
-      scores: {'player1': 0, 'player2': 0},
-      activePlayerId: 'player1',
-      activePlayerName: 'Player 1',
-    );
-    
-    if (state.mode == DotsMode.networked) {
+    final currentMode = state.mode;
+
+    if (currentMode == DotsMode.networked) {
       final players = ref.read(lobbyProvider);
       if (players.isNotEmpty) {
-        state = state.copyWith(
+        state = DotsState(
           mode: DotsMode.networked,
           activePlayerId: players.first.id,
           activePlayerName: players.first.name,
           scores: { for (var p in players) p.id : 0 },
         );
       }
+    } else {
+      state = const DotsState(
+        mode: DotsMode.passAndPlay,
+        scores: {'player1': 0, 'player2': 0},
+        activePlayerId: 'player1',
+        activePlayerName: 'Player 1',
+      );
     }
   }
 

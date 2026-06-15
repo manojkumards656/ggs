@@ -7,6 +7,10 @@ class LobbyNotifier extends Notifier<List<Player>> {
     return [];
   }
 
+  void resetLobby() {
+    state = [];
+  }
+
   void addPlayer(Player player) {
     if (!state.any((p) => p.id == player.id)) {
       state = [...state, player];

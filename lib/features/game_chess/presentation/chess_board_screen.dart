@@ -57,6 +57,11 @@ class _ChessBoardScreenState extends ConsumerState<ChessBoardScreen> {
 
 
     _clockTimer = Timer.periodic(interval, (_) {
+      if (!mounted) {
+        _clockTimer?.cancel();
+        _stopwatch.stop();
+        return;
+      }
       if (!_timerEnabled || !_timerStarted) return;
 
       final gameState = ref.read(chessGameStateProvider);
@@ -88,13 +93,14 @@ class _ChessBoardScreenState extends ConsumerState<ChessBoardScreen> {
             _handleTimeout(ChessPieceColor.black);
           }
         }
-
-        // Dynamically switch to fast ticks when approaching low time
-        final currentMs = _getActiveMsRemaining();
-        if (currentMs < 20000 && interval.inMilliseconds > 100) {
-          _startClock(); // Restart with faster interval
-        }
       });
+
+      // Dynamically switch to fast ticks when approaching low time
+      // (moved outside setState to avoid recursive call inside setState callback)
+      final currentMs = _getActiveMsRemaining();
+      if (currentMs < 20000 && interval.inMilliseconds > 100) {
+        _startClock(); // Restart with faster interval
+      }
     });
   }
 

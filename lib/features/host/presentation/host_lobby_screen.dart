@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pocket_party/core/providers/network_providers.dart';
@@ -27,9 +28,21 @@ class HostLobbyScreen extends ConsumerStatefulWidget {
 }
 
 class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
+  static const List<String> _drawWords = [
+    'apple', 'banana', 'car', 'dog', 'elephant', 'flower', 'guitar',
+    'house', 'island', 'jungle', 'kite', 'lamp', 'moon', 'notebook',
+    'ocean', 'piano', 'queen', 'rocket', 'sun', 'tree', 'umbrella',
+    'volcano', 'whale', 'xylophone', 'yacht', 'zebra', 'airplane',
+    'butterfly', 'castle', 'dinosaur', 'firework', 'giraffe', 'hamburger',
+    'ice cream', 'jellyfish', 'kangaroo', 'lighthouse', 'mushroom',
+    'necklace', 'octopus', 'penguin', 'rainbow', 'snowman', 'telescope',
+    'unicorn', 'waterfall', 'pizza', 'spaghetti', 'basketball',
+  ];
+
   final String roomId = const Uuid().v4();
   int? _serverPort;
   bool _isServerRunning = false;
+  bool _gameStarting = false;
   StreamSubscription? _tcpMessageSub;
 
   @override
@@ -41,6 +54,7 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
   }
 
   Future<void> _initServer() async {
+    ref.read(lobbyProvider.notifier).resetLobby();
     final tcpServer = ref.read(tcpServerProvider);
     final discovery = ref.read(udpDiscoveryProvider);
 
@@ -60,15 +74,31 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
       _tcpMessageSub = tcpServer.messageStream.listen((msg) {
         if (!mounted) return;
         if (msg['type'] == 'join') {
-          final playerMsg = msg['player'] as Map<String, dynamic>;
-          final player = Player.fromJson(playerMsg);
-          ref.read(lobbyProvider.notifier).addPlayer(player);
-          
-          final updatedLobby = ref.read(lobbyProvider).map((p) => p.toJson()).toList();
-          tcpServer.broadcastMessage({
-            'type': 'lobby_update',
-            'players': updatedLobby,
-          });
+          try {
+            final playerMsg = msg['player'] as Map<String, dynamic>;
+            final player = Player.fromJson(playerMsg);
+            ref.read(lobbyProvider.notifier).addPlayer(player);
+            
+            final updatedLobby = ref.read(lobbyProvider).map((p) => p.toJson()).toList();
+            tcpServer.broadcastMessage({
+              'type': 'lobby_update',
+              'players': updatedLobby,
+            });
+
+            final updatedRoom = Room(
+              id: roomId,
+              name: "${widget.hostName}'s Room",
+              hostName: widget.hostName,
+              gameType: widget.gameName,
+              playersCount: updatedLobby.length,
+              maxPlayers: 8,
+              tcpPort: _serverPort!,
+              hostIp: '',
+            );
+            discovery.startBroadcasting(updatedRoom.toJson());
+          } catch (e) {
+            debugPrint('Error parsing join message: $e');
+          }
         }
       });
 
@@ -90,6 +120,9 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
   }
 
   void _startGame() {
+    if (_gameStarting) return;
+    _gameStarting = true;
+
     final tcpServer = ref.read(tcpServerProvider);
     final discovery = ref.read(udpDiscoveryProvider);
     
@@ -99,7 +132,7 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
     if (players.isEmpty) return;
     
     final drawerId = players.first.id;
-    final word = 'apple'; 
+    final word = _drawWords[Random().nextInt(_drawWords.length)]; 
     
     ref.read(gameLoopProvider.notifier).startGame(drawerId, word);
     
@@ -127,8 +160,6 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
   @override
   void dispose() {
     _tcpMessageSub?.cancel();
-    ref.read(udpDiscoveryProvider).stopBroadcasting();
-    ref.read(tcpServerProvider).stopServer();
     super.dispose();
   }
 
@@ -198,7 +229,7 @@ class _HostLobbyScreenState extends ConsumerState<HostLobbyScreen> {
               width: double.infinity,
               height: 60,
               child: ElevatedButton(
-                onPressed: players.isNotEmpty ? _startGame : null,
+                onPressed: players.isNotEmpty && !_gameStarting ? _startGame : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.black,

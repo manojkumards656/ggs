@@ -22,6 +22,7 @@ class UdpDiscoveryService {
   RawDatagramSocket? _broadcastSocket;
   RawDatagramSocket? _listenSocket;
   Timer? _broadcastTimer;
+  Timer? _phaseTransitionTimer;
   StreamSubscription? _listenSubscription;
 
   // Broadcast controller to emit discovered rooms
@@ -56,17 +57,22 @@ class UdpDiscoveryService {
     sendBroadcast(); // Send immediately on start
     _broadcastTimer = Timer.periodic(_fastInterval, (_) => sendBroadcast());
 
-    // After 5 seconds, switch to steady-state interval
-    Future.delayed(_fastPhaseDuration, () {
+    // After 5 seconds, switch to steady-state interval.
+    // Uses a cancellable Timer instead of Future.delayed so that
+    // stopBroadcasting() can prevent the phase transition from firing.
+    _phaseTransitionTimer = Timer(_fastPhaseDuration, () {
       if (_broadcastTimer != null && _broadcastSocket != null) {
         _broadcastTimer?.cancel();
         _broadcastTimer = Timer.periodic(_steadyInterval, (_) => sendBroadcast());
       }
+      _phaseTransitionTimer = null;
     });
   }
 
   /// Stops broadcasting room info.
   void stopBroadcasting() {
+    _phaseTransitionTimer?.cancel();
+    _phaseTransitionTimer = null;
     _broadcastTimer?.cancel();
     _broadcastTimer = null;
     _broadcastSocket?.close();

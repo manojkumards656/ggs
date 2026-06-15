@@ -12,6 +12,7 @@ import 'package:pocket_party/features/game_hangman/presentation/hangman_screen.d
 import 'package:pocket_party/features/game_reversi/presentation/reversi_screen.dart';
 import 'package:pocket_party/features/game_spyfall/presentation/spyfall_screen.dart';
 import 'package:pocket_party/features/game_tod/presentation/screens/tod_screen.dart';
+import 'package:pocket_party/features/game_youknow/presentation/screens/youknow_screen.dart';
 
 // ─────────────────────────────────────────────────────────────
 // Game Definition
@@ -83,6 +84,22 @@ class GameDefinition {
 // That's it. No other files need editing.
 
 final List<GameDefinition> gameRegistry = [
+  GameDefinition(
+    id: 'youknow',
+    displayName: 'YouKnow',
+    icon: Icons.layers,
+    gradient: const LinearGradient(
+      colors: [Color(0xFFE65C00), Color(0xFFF9D423)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    ),
+    supportsNetwork: true,
+    supportsSinglePhone: true,
+    singlePhoneScreenBuilder: () => const YouKnowScreen(isNetworked: false),
+    networkScreenBuilder: ({required bool isHost}) =>
+        YouKnowScreen(isNetworked: true, isHost: isHost),
+  ),
+
   GameDefinition(
     id: 'draw_guess',
     displayName: 'Draw & Guess',

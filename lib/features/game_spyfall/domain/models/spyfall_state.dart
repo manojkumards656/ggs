@@ -1,7 +1,7 @@
-enum GameMode { localPassAndPlay, networked }
+enum SpyfallGameMode { localPassAndPlay, networked }
 
 class SpyfallState {
-  final GameMode mode;
+  final SpyfallGameMode mode;
   final List<String> players;
   final Map<String, String> playerRoles;
   final String? location;
@@ -11,7 +11,7 @@ class SpyfallState {
   final bool isGameOver;
 
   const SpyfallState({
-    this.mode = GameMode.localPassAndPlay,
+    this.mode = SpyfallGameMode.localPassAndPlay,
     this.players = const [],
     this.playerRoles = const {},
     this.location,
@@ -22,7 +22,7 @@ class SpyfallState {
   });
 
   SpyfallState copyWith({
-    GameMode? mode,
+    SpyfallGameMode? mode,
     List<String>? players,
     Map<String, String>? playerRoles,
     String? location,

@@ -32,6 +32,7 @@ class _ClientLobbyScreenState extends ConsumerState<ClientLobbyScreen> {
   }
 
   void _listenToHost() {
+    ref.read(lobbyProvider.notifier).resetLobby();
     final tcpClient = ref.read(tcpClientProvider);
     _messageSub = tcpClient.messageStream.listen((msg) {
       if (!mounted) return;
@@ -67,7 +68,6 @@ class _ClientLobbyScreenState extends ConsumerState<ClientLobbyScreen> {
   @override
   void dispose() {
     _messageSub?.cancel();
-    ref.read(tcpClientProvider).disconnect();
     super.dispose();
   }
 

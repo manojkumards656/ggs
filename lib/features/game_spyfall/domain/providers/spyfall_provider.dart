@@ -40,7 +40,7 @@ class SpyfallNotifier extends Notifier<SpyfallState> {
     }
 
     state = SpyfallState(
-      mode: GameMode.localPassAndPlay,
+      mode: SpyfallGameMode.localPassAndPlay,
       players: players,
       playerRoles: roles,
       location: location,
@@ -63,7 +63,7 @@ class SpyfallNotifier extends Notifier<SpyfallState> {
     }
 
     state = SpyfallState(
-      mode: GameMode.networked,
+      mode: SpyfallGameMode.networked,
       players: playerIds,
       playerRoles: roles,
       location: location,
@@ -82,7 +82,7 @@ class SpyfallNotifier extends Notifier<SpyfallState> {
   }
 
   void nextPlayer() {
-    if (state.mode == GameMode.localPassAndPlay) {
+    if (state.mode == SpyfallGameMode.localPassAndPlay) {
       if (state.currentPlayerIndex < state.players.length - 1) {
         state = state.copyWith(
           currentPlayerIndex: state.currentPlayerIndex + 1,

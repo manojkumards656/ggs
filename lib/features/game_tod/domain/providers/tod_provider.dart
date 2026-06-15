@@ -81,8 +81,6 @@ class TodNotifier extends Notifier<TodState> {
 
   @override
   TodState build() {
-    _listenToNetwork();
-
     ref.onDispose(() {
       _networkSubscription?.cancel();
       _spinTimer?.cancel();
@@ -94,6 +92,8 @@ class TodNotifier extends Notifier<TodState> {
   /// Set the host role for network subscriptions.
   void setHost(bool isHost) {
     _isHost = isHost;
+    _networkSubscription?.cancel();
+    _listenToNetwork();
   }
 
   void _listenToNetwork() {

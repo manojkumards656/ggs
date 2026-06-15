@@ -197,9 +197,16 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   @override
   void dispose() {
-    _tcpSub?.cancel();
     _batchTimer?.cancel();
-    _flushDrawBatch(); // Flush any remaining points before dispose
+    // Flush remaining draw points while ref is still valid
+    try {
+      if (_drawBatch.isNotEmpty) {
+        _flushDrawBatch();
+      }
+    } catch (_) {
+      // ref may already be invalid during hot reload or app shutdown
+    }
+    _tcpSub?.cancel();
     _chatController.dispose();
     _pointsNotifier.dispose();
     super.dispose();

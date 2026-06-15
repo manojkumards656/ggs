@@ -42,13 +42,13 @@ class SpyfallScreen extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (state.mode == GameMode.localPassAndPlay && !state.isGameOver)
+              if (state.mode == SpyfallGameMode.localPassAndPlay && !state.isGameOver)
                 _buildPassAndPlayHeader(state, textColor, accentColor),
                 
-              if (state.mode == GameMode.networked)
+              if (state.mode == SpyfallGameMode.networked)
                 _buildNetworkHeader(textColor, accentColor),
 
-              if (state.isGameOver && state.mode == GameMode.localPassAndPlay)
+              if (state.isGameOver && state.mode == SpyfallGameMode.localPassAndPlay)
                 _buildGameOver(notifier, textColor, accentColor)
               else
                 Expanded(
@@ -143,7 +143,7 @@ class SpyfallScreen extends ConsumerWidget {
     String subText = '';
     bool isSpy = false;
 
-    if (state.mode == GameMode.localPassAndPlay) {
+    if (state.mode == SpyfallGameMode.localPassAndPlay) {
       if (state.players.isNotEmpty) {
         final currentPlayer = state.players[state.currentPlayerIndex];
         roleText = state.playerRoles[currentPlayer] ?? 'UNKNOWN';
@@ -253,7 +253,7 @@ class SpyfallScreen extends ConsumerWidget {
     required Color accentColor,
     required Color textColor,
     required SpyfallNotifier notifier,
-    required GameMode mode,
+    required SpyfallGameMode mode,
   }) {
     final displayColor = isSpy ? accentColor : Colors.blueGrey.shade700;
     
@@ -310,7 +310,7 @@ class SpyfallScreen extends ConsumerWidget {
               ],
             ),
           ),
-          if (mode == GameMode.localPassAndPlay)
+          if (mode == SpyfallGameMode.localPassAndPlay)
             Padding(
               padding: const EdgeInsets.only(bottom: 24.0),
               child: ElevatedButton.icon(

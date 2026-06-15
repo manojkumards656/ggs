@@ -118,7 +118,6 @@ class _CanvasPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CanvasPainter oldDelegate) {
-    // Only repaint if the number of points has changed. 
-    return oldDelegate.points.length != points.length;
+    return !identical(oldDelegate.points, points);
   }
 }
