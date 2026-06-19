@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 // ── Game Screen Imports ─────────────────────────────────────
 // Each game has exactly ONE import here. Adding a game = add 1 import + 1 entry.
 // Removing a game = delete 1 import + 1 entry + delete the game folder.
-// (Currently empty — add your game imports here)
+import 'package:pocket_party/features/game_chess/presentation/screens/chess_screen.dart';
 
 // ─────────────────────────────────────────────────────────────
 // Game Definition
@@ -76,6 +76,21 @@ class GameDefinition {
 
 final List<GameDefinition> gameRegistry = [
   // ── Add your GameDefinition entries here ──
+  GameDefinition(
+    id: 'chess',
+    displayName: 'Chess',
+    icon: Icons.person,
+    gradient: const LinearGradient(
+      colors: [Color(0xFF6B11FF), Color(0xFF00F2FE)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    ),
+    supportsNetwork: true,
+    supportsSinglePhone: true,
+    singlePhoneScreenBuilder: () => const ChessScreen(isNetworked: false),
+    networkScreenBuilder: ({required bool isHost}) =>
+        ChessScreen(isNetworked: true, isHost: isHost),
+  ),
 ];
 
 // ─────────────────────────────────────────────────────────────
