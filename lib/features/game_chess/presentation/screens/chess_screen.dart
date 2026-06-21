@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:pocket_party/core/providers/network_providers.dart';
@@ -34,6 +35,7 @@ class _ChessScreenState extends ConsumerState<ChessScreen> {
   int _selectedMinutes = 5;
   int _selectedIncrement = 0;
   bool _autoRotate = true;
+  bool _showCoordinates = true;
   
   // Network rematch flags
   bool _rematchRequestedByOpponent = false;
@@ -141,6 +143,9 @@ class _ChessScreenState extends ConsumerState<ChessScreen> {
           _showToast('Undo request declined');
         }
         break;
+      case 'client_disconnected':
+        _showToast('Opponent disconnected from the game.');
+        break;
     }
   }
 
@@ -216,6 +221,15 @@ class _ChessScreenState extends ConsumerState<ChessScreen> {
         } else {
           _showToast('Undo request declined');
         }
+        break;
+      case 'setup_sync':
+        setState(() {
+          _selectedMinutes = msg['minutes'] as int;
+          _selectedIncrement = msg['increment'] as int;
+        });
+        break;
+      case 'connection_lost':
+        _showConnectionFailureDialog();
         break;
     }
   }
@@ -443,6 +457,26 @@ class _ChessScreenState extends ConsumerState<ChessScreen> {
 
   /// ──── Helper dialogs ────
 
+  void _showConnectionFailureDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Connection Lost'),
+        content: const Text('Lost connection to the host. Please exit the game.'),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _leaveGame();
+            },
+            child: const Text('Exit Game'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showUndoRequestDialog() {
     showDialog(
       context: context,
@@ -552,10 +586,43 @@ class _ChessScreenState extends ConsumerState<ChessScreen> {
 
   /// ──── UI Builders ────
 
+  int _calculateMaterialAdvantage(List<String> myCaptures, List<String> oppCaptures) {
+    const values = {'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0};
+    int myScore = myCaptures.fold(0, (sum, p) => sum + (values[p.toLowerCase()] ?? 0));
+    int oppScore = oppCaptures.fold(0, (sum, p) => sum + (values[p.toLowerCase()] ?? 0));
+    return myScore - oppScore;
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(chessProvider);
     final isSpectator = _isSpectator();
+
+    ref.listen<ChessState>(chessProvider, (previous, current) {
+      if (previous == null) return;
+      if (!previous.isGameOver && current.isGameOver) {
+        HapticFeedback.vibrate();
+      } else if (!previous.isCheck && current.isCheck) {
+        HapticFeedback.heavyImpact();
+        SystemSound.play(SystemSoundType.click);
+      } else if (previous.moveHistory.length < current.moveHistory.length) {
+        int prevCaptures = previous.capturedWhitePieces.length + previous.capturedBlackPieces.length;
+        int currCaptures = current.capturedWhitePieces.length + current.capturedBlackPieces.length;
+        if (currCaptures > prevCaptures) {
+          HapticFeedback.mediumImpact();
+          SystemSound.play(SystemSoundType.click);
+        } else {
+          HapticFeedback.lightImpact();
+          SystemSound.play(SystemSoundType.click);
+        }
+      }
+    });
+
+    int whiteMaterial = _calculateMaterialAdvantage(state.capturedBlackPieces, state.capturedWhitePieces);
+    int blackMaterial = -whiteMaterial;
+    
+    int topMaterialAdvantage = isFlipped ? whiteMaterial : blackMaterial;
+    int bottomMaterialAdvantage = isFlipped ? blackMaterial : whiteMaterial;
 
     return Scaffold(
       body: Container(
@@ -585,7 +652,9 @@ class _ChessScreenState extends ConsumerState<ChessScreen> {
                         timeRemaining: isFlipped ? state.whiteTimeRemaining : state.blackTimeRemaining,
                         isActive: isFlipped ? (state.activeColor == 'w') : (state.activeColor == 'b'),
                         isWhite: isFlipped,
-                        boardFen: state.boardFen,
+                        capturedPieces: isFlipped ? state.capturedBlackPieces : state.capturedWhitePieces,
+                        materialAdvantage: topMaterialAdvantage,
+                        isTimed: state.isTimed,
                         isFlipped: true, // rotated upside down for top display
                       ),
 
@@ -608,6 +677,7 @@ class _ChessScreenState extends ConsumerState<ChessScreen> {
                                 isFlipped: isFlipped,
                                 activeColor: state.activeColor,
                                 rotateOpponentPieces: !widget.isNetworked,
+                                showCoordinates: _showCoordinates,
                                 onSquareTap: (square) {
                                   if (isSpectator) return;
                                   
@@ -654,7 +724,9 @@ class _ChessScreenState extends ConsumerState<ChessScreen> {
                         timeRemaining: isFlipped ? state.blackTimeRemaining : state.whiteTimeRemaining,
                         isActive: isFlipped ? (state.activeColor == 'b') : (state.activeColor == 'w'),
                         isWhite: !isFlipped,
-                        boardFen: state.boardFen,
+                        capturedPieces: isFlipped ? state.capturedWhitePieces : state.capturedBlackPieces,
+                        materialAdvantage: bottomMaterialAdvantage,
+                        isTimed: state.isTimed,
                         isFlipped: false,
                       ),
                     ],
@@ -786,10 +858,17 @@ class _ChessScreenState extends ConsumerState<ChessScreen> {
                             divisions: 59,
                             value: _selectedMinutes.toDouble(),
                             activeColor: const Color(0xFF00F2FE),
-                            onChanged: (val) {
+                            onChanged: (widget.isNetworked && !widget.isHost) ? null : (val) {
                               setState(() {
                                 _selectedMinutes = val.toInt();
                               });
+                              if (widget.isNetworked && widget.isHost) {
+                                ref.read(tcpServerProvider).broadcastMessage({
+                                  'type': 'setup_sync',
+                                  'minutes': _selectedMinutes,
+                                  'increment': _selectedIncrement,
+                                });
+                              }
                             },
                           ),
                         ),
@@ -806,10 +885,17 @@ class _ChessScreenState extends ConsumerState<ChessScreen> {
                             divisions: 30,
                             value: _selectedIncrement.toDouble(),
                             activeColor: const Color(0xFF00F2FE),
-                            onChanged: (val) {
+                            onChanged: (widget.isNetworked && !widget.isHost) ? null : (val) {
                               setState(() {
                                 _selectedIncrement = val.toInt();
                               });
+                              if (widget.isNetworked && widget.isHost) {
+                                ref.read(tcpServerProvider).broadcastMessage({
+                                  'type': 'setup_sync',
+                                  'minutes': _selectedMinutes,
+                                  'increment': _selectedIncrement,
+                                });
+                              }
                             },
                           ),
                         ),
@@ -834,6 +920,18 @@ class _ChessScreenState extends ConsumerState<ChessScreen> {
                   });
                 },
               ),
+
+            SwitchListTile(
+              title: const Text('Show Coordinates', style: TextStyle(color: Colors.white)),
+              subtitle: const Text('Display algebraic coordinates on the board', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              value: _showCoordinates,
+              activeTrackColor: const Color(0xFF00F2FE),
+              onChanged: (val) {
+                setState(() {
+                  _showCoordinates = val;
+                });
+              },
+            ),
 
             const SizedBox(height: 40),
             
@@ -875,12 +973,19 @@ class _ChessScreenState extends ConsumerState<ChessScreen> {
     return ChoiceChip(
       label: Text(label),
       selected: isSelected,
-      onSelected: (val) {
+      onSelected: (widget.isNetworked && !widget.isHost) ? null : (val) {
         if (val) {
           setState(() {
             _selectedMinutes = mins;
             _selectedIncrement = inc;
           });
+          if (widget.isNetworked && widget.isHost) {
+            ref.read(tcpServerProvider).broadcastMessage({
+              'type': 'setup_sync',
+              'minutes': mins,
+              'increment': inc,
+            });
+          }
         }
       },
       selectedColor: const Color(0xFF00F2FE),
@@ -925,6 +1030,39 @@ class _ChessScreenState extends ConsumerState<ChessScreen> {
             ],
           ),
           const SizedBox(height: 12),
+          
+          // History Display
+          if (state.moveHistory.isNotEmpty)
+            Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: (state.moveHistory.length / 2).ceil(),
+                itemBuilder: (context, index) {
+                  int moveNum = index + 1;
+                  int wIndex = index * 2;
+                  int bIndex = wIndex + 1;
+                  String wMove = state.moveHistory[wIndex];
+                  String bMove = bIndex < state.moveHistory.length ? state.moveHistory[bIndex] : '';
+                  
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Center(
+                      child: Text(
+                        '$moveNum. $wMove $bMove',
+                        style: const TextStyle(color: Colors.white70, fontFamily: 'monospace'),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           
           // Action Buttons: Resign, Draw, Offer Draw
           if (!state.isGameOver && !isSpectator)

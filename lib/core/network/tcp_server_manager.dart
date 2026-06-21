@@ -55,10 +55,16 @@ class TcpServerManager {
         },
         onError: (error) {
           print('Client error: $error');
+          if (!_messageController.isClosed) {
+            _messageController.add({'type': 'client_disconnected'});
+          }
           _removeClient(client);
         },
         onDone: () {
           print('Client disconnected.');
+          if (!_messageController.isClosed) {
+            _messageController.add({'type': 'client_disconnected'});
+          }
           _removeClient(client);
         },
       );

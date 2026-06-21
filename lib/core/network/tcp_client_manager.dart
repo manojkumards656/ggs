@@ -62,10 +62,16 @@ class TcpClientManager {
       },
       onError: (error) {
         print('Socket error: $error');
+        if (!_messageController.isClosed) {
+          _messageController.add({'type': 'connection_lost'});
+        }
         disconnect();
       },
       onDone: () {
         print('Disconnected from server.');
+        if (!_messageController.isClosed) {
+          _messageController.add({'type': 'connection_lost'});
+        }
         disconnect();
       },
     );

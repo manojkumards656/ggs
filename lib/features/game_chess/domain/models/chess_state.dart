@@ -20,6 +20,9 @@ class ChessState {
   final bool isPromotionPending;
   final String? promotionSource;
   final String? promotionTarget;
+  final bool isTimed;
+  final List<String> capturedWhitePieces;
+  final List<String> capturedBlackPieces;
 
   const ChessState({
     required this.boardFen,
@@ -40,6 +43,9 @@ class ChessState {
     this.isPromotionPending = false,
     this.promotionSource,
     this.promotionTarget,
+    this.isTimed = true,
+    this.capturedWhitePieces = const [],
+    this.capturedBlackPieces = const [],
   });
 
   factory ChessState.initial({
@@ -55,6 +61,9 @@ class ChessState {
       isGameOver: false,
       whitePlayerName: whitePlayerName,
       blackPlayerName: blackPlayerName,
+      isTimed: initialTimeSeconds > 0,
+      capturedWhitePieces: const [],
+      capturedBlackPieces: const [],
     );
   }
 
@@ -77,6 +86,9 @@ class ChessState {
     bool? isPromotionPending,
     String? promotionSource,
     String? promotionTarget,
+    bool? isTimed,
+    List<String>? capturedWhitePieces,
+    List<String>? capturedBlackPieces,
   }) {
     return ChessState(
       boardFen: boardFen ?? this.boardFen,
@@ -97,6 +109,9 @@ class ChessState {
       isPromotionPending: isPromotionPending ?? this.isPromotionPending,
       promotionSource: promotionSource ?? this.promotionSource,
       promotionTarget: promotionTarget ?? this.promotionTarget,
+      isTimed: isTimed ?? this.isTimed,
+      capturedWhitePieces: capturedWhitePieces ?? this.capturedWhitePieces,
+      capturedBlackPieces: capturedBlackPieces ?? this.capturedBlackPieces,
     );
   }
 
@@ -120,6 +135,9 @@ class ChessState {
       'isPromotionPending': isPromotionPending,
       'promotionSource': promotionSource,
       'promotionTarget': promotionTarget,
+      'isTimed': isTimed,
+      'capturedWhitePieces': capturedWhitePieces,
+      'capturedBlackPieces': capturedBlackPieces,
     };
   }
 
@@ -143,6 +161,9 @@ class ChessState {
       isPromotionPending: json['isPromotionPending'] as bool? ?? false,
       promotionSource: json['promotionSource'] as String?,
       promotionTarget: json['promotionTarget'] as String?,
+      isTimed: json['isTimed'] as bool? ?? true,
+      capturedWhitePieces: List<String>.from(json['capturedWhitePieces'] ?? []),
+      capturedBlackPieces: List<String>.from(json['capturedBlackPieces'] ?? []),
     );
   }
 }

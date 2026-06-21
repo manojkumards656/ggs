@@ -7,7 +7,9 @@ class ChessClockWidget extends StatelessWidget {
   final int timeRemaining; // in seconds
   final bool isActive;
   final bool isWhite;
-  final String boardFen;
+  final List<String> capturedPieces; // list of captured opponent pieces ('p', 'r', etc.)
+  final int materialAdvantage;
+  final bool isTimed;
   final bool isFlipped;
 
   const ChessClockWidget({
@@ -16,7 +18,9 @@ class ChessClockWidget extends StatelessWidget {
     required this.timeRemaining,
     required this.isActive,
     required this.isWhite,
-    required this.boardFen,
+    required this.capturedPieces,
+    this.materialAdvantage = 0,
+    required this.isTimed,
     this.isFlipped = false,
   });
 
@@ -28,93 +32,9 @@ class ChessClockWidget extends StatelessWidget {
     return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
-  /// Calculates which of the opponent's pieces have been captured, based on FEN
-  List<String> _getCapturedOpponentPieces() {
-    // We want to count remaining opponent pieces in FEN
-    final piecePositionPart = boardFen.split(' ').first;
-    
-    // Count active pieces
-    final activeCounts = <String, int>{
-      'p': 0, 'n': 0, 'b': 0, 'r': 0, 'q': 0, // black pieces (lowercase)
-      'P': 0, 'N': 0, 'B': 0, 'R': 0, 'Q': 0, // white pieces (uppercase)
-    };
-    
-    for (var i = 0; i < piecePositionPart.length; i++) {
-      final char = piecePositionPart[i];
-      if (activeCounts.containsKey(char)) {
-        activeCounts[char] = activeCounts[char]! + 1;
-      }
-    }
-
-    final captured = <String>[];
-    
-    if (isWhite) {
-      // Opponent is Black. We count captured Black pieces.
-      // Pawns (initial 8)
-      final pDiff = 8 - (activeCounts['p'] ?? 0);
-      for (var i = 0; i < pDiff; i++) {
-        captured.add('p');
-      }
-      // Knights (initial 2)
-      final nDiff = 2 - (activeCounts['n'] ?? 0);
-      for (var i = 0; i < nDiff; i++) {
-        captured.add('n');
-      }
-      // Bishops (initial 2)
-      final bDiff = 2 - (activeCounts['b'] ?? 0);
-      for (var i = 0; i < bDiff; i++) {
-        captured.add('b');
-      }
-      // Rooks (initial 2)
-      final rDiff = 2 - (activeCounts['r'] ?? 0);
-      for (var i = 0; i < rDiff; i++) {
-        captured.add('r');
-      }
-      // Queens (initial 1)
-      final qDiff = 1 - (activeCounts['q'] ?? 0);
-      for (var i = 0; i < qDiff; i++) {
-        captured.add('q');
-      }
-    } else {
-      // Opponent is White. We count captured White pieces.
-      // Pawns (initial 8)
-      final pDiff = 8 - (activeCounts['P'] ?? 0);
-      for (var i = 0; i < pDiff; i++) {
-        captured.add('p');
-      }
-      // Knights (initial 2)
-      final nDiff = 2 - (activeCounts['N'] ?? 0);
-      for (var i = 0; i < nDiff; i++) {
-        captured.add('n');
-      }
-      // Bishops (initial 2)
-      final bDiff = 2 - (activeCounts['B'] ?? 0);
-      for (var i = 0; i < bDiff; i++) {
-        captured.add('b');
-      }
-      // Rooks (initial 2)
-      final rDiff = 2 - (activeCounts['R'] ?? 0);
-      for (var i = 0; i < rDiff; i++) {
-        captured.add('r');
-      }
-      // Queens (initial 1)
-      final qDiff = 1 - (activeCounts['Q'] ?? 0);
-      for (var i = 0; i < qDiff; i++) {
-        captured.add('q');
-      }
-    }
-    
-    // Sort them by piece value to look nice: Queen, Rook, Bishop, Knight, Pawn
-    final order = {'q': 0, 'r': 1, 'b': 2, 'n': 3, 'p': 4};
-    captured.sort((a, b) => order[a]!.compareTo(order[b]!));
-    
-    return captured;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isUntimed = timeRemaining <= 0;
-    final capturedPieces = _getCapturedOpponentPieces();
+    final isUntimed = !isTimed;
 
     // Pulse effect when active to draw attention without heavy rebuild cost
     Widget clockCard = Container(
@@ -172,23 +92,37 @@ class ChessClockWidget extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               // Captured pieces display
-              if (capturedPieces.isNotEmpty)
+              if (capturedPieces.isNotEmpty || materialAdvantage > 0)
                 SizedBox(
                   height: 20,
                   child: Row(
-                    children: capturedPieces.map((pieceType) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 2.0),
-                        child: Opacity(
-                          opacity: 0.65,
-                          child: ChessPieceWidget(
-                            type: pieceType,
-                            color: isWhite ? 'b' : 'w', // opponent's color
-                            size: 16,
+                    children: [
+                      ...capturedPieces.map((pieceType) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 2.0),
+                          child: Opacity(
+                            opacity: 0.65,
+                            child: ChessPieceWidget(
+                              type: pieceType,
+                              color: isWhite ? 'b' : 'w', // opponent's color
+                              size: 16,
+                            ),
+                          ),
+                        );
+                      }),
+                      if (materialAdvantage > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4.0),
+                          child: Text(
+                            '+$materialAdvantage',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isWhite ? Colors.white.withValues(alpha: 0.8) : const Color(0xFF00F2FE).withValues(alpha: 0.8),
+                            ),
                           ),
                         ),
-                      );
-                    }).toList(),
+                    ],
                   ),
                 )
               else

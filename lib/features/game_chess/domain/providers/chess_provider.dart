@@ -41,6 +41,9 @@ class ChessNotifier extends Notifier<ChessState> {
       isPromotionPending: false,
       promotionSource: null,
       promotionTarget: null,
+      isTimed: initialTimeSeconds > 0,
+      capturedWhitePieces: const [],
+      capturedBlackPieces: const [],
     );
   }
 
@@ -170,6 +173,9 @@ class ChessNotifier extends Notifier<ChessState> {
       } else if (_chess.insufficient_material) {
         reason = 'Insufficient Material';
         winner = 'draw';
+      } else if (_chess.in_draw && !_chess.in_stalemate && !_chess.in_threefold_repetition && !_chess.insufficient_material) {
+        reason = '50-Move Rule';
+        winner = 'draw';
       } else {
         reason = 'Draw';
         winner = 'draw';
@@ -178,6 +184,9 @@ class ChessNotifier extends Notifier<ChessState> {
 
     // Get move history in SAN
     final history = _chess.getHistory();
+
+    final capturedWhite = _calculateCapturedPieces(_chess.fen, true);
+    final capturedBlack = _calculateCapturedPieces(_chess.fen, false);
 
     state = state.copyWith(
       boardFen: _chess.fen,
@@ -196,6 +205,8 @@ class ChessNotifier extends Notifier<ChessState> {
       isPromotionPending: false,
       promotionSource: null,
       promotionTarget: null,
+      capturedWhitePieces: capturedWhite,
+      capturedBlackPieces: capturedBlack,
     );
 
     return true;
@@ -294,6 +305,9 @@ class ChessNotifier extends Notifier<ChessState> {
     // Unfortunately, _chess doesn't expose the move log directly in standard format,
     // but we can query it or set them to null on undo. Setting them to null is safe.
     
+    final capturedWhite = _calculateCapturedPieces(_chess.fen, true);
+    final capturedBlack = _calculateCapturedPieces(_chess.fen, false);
+    
     state = state.copyWith(
       boardFen: _chess.fen,
       activeColor: nextTurn,
@@ -309,6 +323,8 @@ class ChessNotifier extends Notifier<ChessState> {
       isPromotionPending: false,
       promotionSource: null,
       promotionTarget: null,
+      capturedWhitePieces: capturedWhite,
+      capturedBlackPieces: capturedBlack,
     );
 
     return true;
@@ -322,6 +338,67 @@ class ChessNotifier extends Notifier<ChessState> {
 
   String _getPieceColorString(chess_logic.Color c) {
     return c == chess_logic.Color.WHITE ? 'w' : 'b';
+  }
+
+  List<String> _calculateCapturedPieces(String fen, bool opponentIsWhite) {
+    final piecePositionPart = fen.split(' ').first;
+    final activeCounts = <String, int>{
+      'p': 0, 'n': 0, 'b': 0, 'r': 0, 'q': 0,
+      'P': 0, 'N': 0, 'B': 0, 'R': 0, 'Q': 0,
+    };
+    for (var i = 0; i < piecePositionPart.length; i++) {
+      final char = piecePositionPart[i];
+      if (activeCounts.containsKey(char)) {
+        activeCounts[char] = activeCounts[char]! + 1;
+      }
+    }
+    final captured = <String>[];
+    if (!opponentIsWhite) {
+      final pDiff = 8 - (activeCounts['p'] ?? 0);
+      for (var i = 0; i < pDiff; i++) {
+        captured.add('p');
+      }
+      final nDiff = 2 - (activeCounts['n'] ?? 0);
+      for (var i = 0; i < nDiff; i++) {
+        captured.add('n');
+      }
+      final bDiff = 2 - (activeCounts['b'] ?? 0);
+      for (var i = 0; i < bDiff; i++) {
+        captured.add('b');
+      }
+      final rDiff = 2 - (activeCounts['r'] ?? 0);
+      for (var i = 0; i < rDiff; i++) {
+        captured.add('r');
+      }
+      final qDiff = 1 - (activeCounts['q'] ?? 0);
+      for (var i = 0; i < qDiff; i++) {
+        captured.add('q');
+      }
+    } else {
+      final pDiff = 8 - (activeCounts['P'] ?? 0);
+      for (var i = 0; i < pDiff; i++) {
+        captured.add('p');
+      }
+      final nDiff = 2 - (activeCounts['N'] ?? 0);
+      for (var i = 0; i < nDiff; i++) {
+        captured.add('n');
+      }
+      final bDiff = 2 - (activeCounts['B'] ?? 0);
+      for (var i = 0; i < bDiff; i++) {
+        captured.add('b');
+      }
+      final rDiff = 2 - (activeCounts['R'] ?? 0);
+      for (var i = 0; i < rDiff; i++) {
+        captured.add('r');
+      }
+      final qDiff = 1 - (activeCounts['Q'] ?? 0);
+      for (var i = 0; i < qDiff; i++) {
+        captured.add('q');
+      }
+    }
+    final order = {'q': 0, 'r': 1, 'b': 2, 'n': 3, 'p': 4};
+    captured.sort((a, b) => order[a]!.compareTo(order[b]!));
+    return captured;
   }
 }
 

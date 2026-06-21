@@ -12,6 +12,7 @@ class ChessBoardWidget extends StatelessWidget {
   final bool isFlipped;
   final String activeColor; // 'w' or 'b'
   final bool rotateOpponentPieces;
+  final bool showCoordinates;
   final Function(String square) onSquareTap;
 
   const ChessBoardWidget({
@@ -25,6 +26,7 @@ class ChessBoardWidget extends StatelessWidget {
     required this.isFlipped,
     required this.activeColor,
     required this.rotateOpponentPieces,
+    required this.showCoordinates,
     required this.onSquareTap,
   });
 
@@ -258,7 +260,7 @@ class ChessBoardWidget extends StatelessWidget {
                           ),
 
                         // Coordinates labels (Ranks 1-8 on left-most column, Files a-h on bottom-most row)
-                        if (visualCol == 0)
+                        if (showCoordinates && visualCol == 0)
                           Positioned(
                             top: 2,
                             left: 4,
@@ -267,11 +269,11 @@ class ChessBoardWidget extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white.withValues(alpha: 0.35),
+                                color: Colors.white.withValues(alpha: 0.65),
                               ),
                             ),
                           ),
-                        if (visualRow == 7)
+                        if (showCoordinates && visualRow == 7)
                           Positioned(
                             bottom: 2,
                             right: 4,
@@ -280,7 +282,7 @@ class ChessBoardWidget extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white.withValues(alpha: 0.35),
+                                color: Colors.white.withValues(alpha: 0.65),
                               ),
                             ),
                           ),
