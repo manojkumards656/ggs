@@ -3,15 +3,19 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:pocket_party/features/game_rummy/domain/models/rummy_state.dart';
 import 'package:pocket_party/features/game_rummy/presentation/widgets/card_widget.dart';
 
-/// The central table area showing the stock pile, discard pile,
-/// and wild joker indicator.
-class GameTableWidget extends StatelessWidget {
+/// Central table area — stock pile, discard pile, and wild joker.
+///
+/// Optimised for **landscape** layout (horizontal Row).
+/// The discard pile is a [DragTarget<int>] that accepts cards from the hand.
+class GameTableWidget extends StatefulWidget {
   final List<PlayingCard> stockPile;
   final List<PlayingCard> discardPile;
   final PlayingCard? wildJokerCard;
   final bool canDraw;
+  final bool canDiscard;
   final VoidCallback onDrawFromStock;
   final VoidCallback onDrawFromDiscard;
+  final ValueChanged<int>? onCardDiscarded;
   final double cardWidth;
 
   const GameTableWidget({
@@ -20,89 +24,92 @@ class GameTableWidget extends StatelessWidget {
     required this.discardPile,
     this.wildJokerCard,
     required this.canDraw,
+    this.canDiscard = false,
     required this.onDrawFromStock,
     required this.onDrawFromDiscard,
+    this.onCardDiscarded,
     this.cardWidth = 60,
   });
 
   @override
+  State<GameTableWidget> createState() => _GameTableWidgetState();
+}
+
+class _GameTableWidgetState extends State<GameTableWidget> {
+  bool _discardHovering = false;
+
+  @override
   Widget build(BuildContext context) {
-    final cardHeight = cardWidth * 1.4;
+    final cardHeight = widget.cardWidth * 1.4;
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF1A1A2E).withValues(alpha: 0.71),
-            const Color(0xFF16213E).withValues(alpha: 0.71),
+            const Color(0xFF1A1A2E).withValues(alpha: 0.6),
+            const Color(0xFF16213E).withValues(alpha: 0.6),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF00F2FE).withValues(alpha: 0.12),
+          color: const Color(0xFF00F2FE).withValues(alpha: 0.1),
           width: 1,
         ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        mainAxisSize: MainAxisSize.min,
         children: [
           // ── Wild Joker indicator ──
           _WildJokerIndicator(
-            wildCard: wildJokerCard,
-            cardWidth: cardWidth * 0.65,
+            wildCard: widget.wildJokerCard,
+            cardWidth: widget.cardWidth * 0.55,
           ),
+          const SizedBox(width: 12),
 
-          // ── Stock pile (face-down) ──
+          // ── Stock pile (face-down, tap to draw) ──
           _PileWidget(
             label: 'STOCK',
-            count: stockPile.length,
-            cardWidth: cardWidth,
+            count: widget.stockPile.length,
+            cardWidth: widget.cardWidth,
             cardHeight: cardHeight,
-            canTap: canDraw && stockPile.isNotEmpty,
-            onTap: onDrawFromStock,
-            child: _buildStockPile(cardWidth, cardHeight),
+            canTap: widget.canDraw && widget.stockPile.isNotEmpty,
+            onTap: widget.onDrawFromStock,
+            child: _buildStockPile(widget.cardWidth, cardHeight),
           ),
+          const SizedBox(width: 12),
 
-          // ── Discard pile (face-up) ──
-          _PileWidget(
-            label: 'DISCARD',
-            count: discardPile.length,
-            cardWidth: cardWidth,
-            cardHeight: cardHeight,
-            canTap: canDraw && discardPile.isNotEmpty,
-            onTap: onDrawFromDiscard,
-            child: _buildDiscardPile(cardWidth, cardHeight),
-          ),
+          // ── Discard pile (DragTarget) ──
+          _buildDiscardPileTarget(widget.cardWidth, cardHeight),
         ],
       ),
-    ).animate().fade(duration: 400.ms).scale(
-      begin: const Offset(0.95, 0.95),
-      duration: 400.ms,
+    ).animate().fade(duration: 300.ms).scale(
+      begin: const Offset(0.97, 0.97),
+      duration: 300.ms,
       curve: Curves.easeOut,
     );
   }
 
   Widget _buildStockPile(double w, double h) {
-    if (stockPile.isEmpty) {
+    if (widget.stockPile.isEmpty) {
       return _EmptyPileSlot(width: w, height: h);
     }
-    // Stacked face-down cards with slight offset
     return SizedBox(
       width: w + 4,
       height: h + 4,
       child: Stack(
         children: [
-          if (stockPile.length > 2)
+          if (widget.stockPile.length > 2)
             Positioned(
-              left: 4, top: 4,
+              left: 3, top: 3,
               child: PlayingCardWidget(isFaceDown: true, width: w),
             ),
-          if (stockPile.length > 1)
+          if (widget.stockPile.length > 1)
             Positioned(
-              left: 2, top: 2,
+              left: 1.5, top: 1.5,
               child: PlayingCardWidget(isFaceDown: true, width: w),
             ),
           Positioned(
@@ -114,15 +121,62 @@ class GameTableWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildDiscardPile(double w, double h) {
-    if (discardPile.isEmpty) {
-      return _EmptyPileSlot(width: w, height: h);
+  Widget _buildDiscardPileTarget(double w, double h) {
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (details) {
+        if (!widget.canDiscard) return false;
+        setState(() => _discardHovering = true);
+        return true;
+      },
+      onLeave: (_) => setState(() => _discardHovering = false),
+      onAcceptWithDetails: (details) {
+        setState(() => _discardHovering = false);
+        widget.onCardDiscarded?.call(details.data);
+      },
+      builder: (context, candidateData, rejectedData) {
+        return _PileWidget(
+          label: 'DISCARD',
+          count: widget.discardPile.length,
+          cardWidth: w,
+          cardHeight: h,
+          canTap: widget.canDraw && widget.discardPile.isNotEmpty,
+          onTap: widget.onDrawFromDiscard,
+          isHighlighted: _discardHovering,
+          child: _buildDiscardPileContent(w, h),
+        );
+      },
+    );
+  }
+
+  Widget _buildDiscardPileContent(double w, double h) {
+    if (widget.discardPile.isEmpty) {
+      return _EmptyPileSlot(
+        width: w,
+        height: h,
+        isHighlighted: _discardHovering,
+        label: widget.canDiscard ? 'Drop here' : null,
+      );
     }
-    return PlayingCardWidget(
-      card: discardPile.last,
-      width: w,
-      isWildJoker: wildJokerCard != null &&
-          discardPile.last.isWildJoker(wildJokerCard),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      decoration: _discardHovering
+          ? BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF00F2FE).withValues(alpha: 0.5),
+                  blurRadius: 18,
+                  spreadRadius: 3,
+                ),
+              ],
+            )
+          : null,
+      child: PlayingCardWidget(
+        card: widget.discardPile.last,
+        width: w,
+        isWildJoker: widget.wildJokerCard != null &&
+            widget.discardPile.last.isWildJoker(widget.wildJokerCard),
+      ),
     );
   }
 }
@@ -145,13 +199,13 @@ class _WildJokerIndicator extends StatelessWidget {
         Text(
           'WILD',
           style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF00F2FE).withValues(alpha: 0.78),
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF00F2FE).withValues(alpha: 0.9),
             letterSpacing: 2,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 3),
         if (wildCard != null)
           PlayingCardWidget(
             card: wildCard,
@@ -161,14 +215,14 @@ class _WildJokerIndicator extends StatelessWidget {
             onPlay: (c) => c.repeat(reverse: true),
           ).shimmer(
             duration: 2000.ms,
-            color: const Color(0xFF00F2FE).withValues(alpha: 0.24),
+            color: const Color(0xFF00F2FE).withValues(alpha: 0.2),
           )
         else
           SizedBox(
             width: cardWidth,
             height: cardWidth * 1.4,
             child: const Center(
-              child: Text('?', style: TextStyle(color: Colors.white38, fontSize: 20)),
+              child: Text('?', style: TextStyle(color: Colors.white38, fontSize: 16)),
             ),
           ),
       ],
@@ -184,6 +238,7 @@ class _PileWidget extends StatelessWidget {
   final bool canTap;
   final VoidCallback onTap;
   final Widget child;
+  final bool isHighlighted;
 
   const _PileWidget({
     required this.label,
@@ -193,6 +248,7 @@ class _PileWidget extends StatelessWidget {
     required this.canTap,
     required this.onTap,
     required this.child,
+    this.isHighlighted = false,
   });
 
   @override
@@ -203,9 +259,11 @@ class _PileWidget extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-            color: Colors.white.withValues(alpha: 0.47),
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            color: isHighlighted
+                ? const Color(0xFF00F2FE).withValues(alpha: 0.95)
+                : Colors.white.withValues(alpha: 0.65),
             letterSpacing: 2,
           ),
         ),
@@ -214,14 +272,16 @@ class _PileWidget extends StatelessWidget {
           onTap: canTap ? onTap : null,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            decoration: canTap
+            decoration: canTap || isHighlighted
                 ? BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF00F2FE).withValues(alpha: 0.16),
-                        blurRadius: 12,
-                        spreadRadius: 2,
+                        color: isHighlighted
+                            ? const Color(0xFF00F2FE).withValues(alpha: 0.4)
+                            : const Color(0xFF00F2FE).withValues(alpha: 0.12),
+                        blurRadius: isHighlighted ? 16 : 10,
+                        spreadRadius: isHighlighted ? 3 : 1,
                       ),
                     ],
                   )
@@ -233,8 +293,9 @@ class _PileWidget extends StatelessWidget {
         Text(
           '$count',
           style: TextStyle(
-            fontSize: 10,
-            color: Colors.white.withValues(alpha: 0.39),
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Colors.white.withValues(alpha: 0.75),
           ),
         ),
       ],
@@ -245,28 +306,50 @@ class _PileWidget extends StatelessWidget {
 class _EmptyPileSlot extends StatelessWidget {
   final double width;
   final double height;
+  final bool isHighlighted;
+  final String? label;
 
-  const _EmptyPileSlot({required this.width, required this.height});
+  const _EmptyPileSlot({
+    required this.width,
+    required this.height,
+    this.isHighlighted = false,
+    this.label,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
       width: width,
       height: height,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.12),
-          width: 1.5,
+          color: isHighlighted
+              ? const Color(0xFF00F2FE).withValues(alpha: 0.6)
+              : Colors.white.withValues(alpha: 0.1),
+          width: isHighlighted ? 2 : 1.5,
         ),
-        color: Colors.white.withValues(alpha: 0.03),
+        color: isHighlighted
+            ? const Color(0xFF00F2FE).withValues(alpha: 0.08)
+            : Colors.white.withValues(alpha: 0.03),
       ),
       child: Center(
-        child: Icon(
-          Icons.layers_clear,
-          size: 18,
-          color: Colors.white.withValues(alpha: 0.16),
-        ),
+        child: label != null
+            ? Text(
+                label!,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: const Color(0xFF00F2FE).withValues(alpha: 0.85),
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              )
+            : Icon(
+                Icons.layers_clear,
+                size: 18,
+                color: Colors.white.withValues(alpha: 0.25),
+              ),
       ),
     );
   }

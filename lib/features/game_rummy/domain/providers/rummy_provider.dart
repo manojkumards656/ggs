@@ -150,6 +150,19 @@ class RummyNotifier extends Notifier<RummyGameState> {
     state = _updateCurrentHand(hand).copyWith(clearSelectedCard: true);
   }
 
+  /// Move a card from [from] to [to] in the current player's hand.
+  /// Used by drag-and-drop reordering.
+  void moveCard(int from, int to) {
+    final hand = List<PlayingCard>.from(state.currentHand);
+    if (from < 0 || from >= hand.length || to < 0 || to >= hand.length) return;
+    if (from == to) return;
+
+    final card = hand.removeAt(from);
+    hand.insert(to, card);
+
+    state = _updateCurrentHand(hand).copyWith(clearSelectedCard: true);
+  }
+
   /// Sort current player's hand by suit, then rank.
   void sortBySuit() {
     final sorted = RummyEngine.sortedBySuit(state.currentHand, state.wildJokerCard);

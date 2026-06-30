@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:pocket_party/features/game_rummy/domain/models/rummy_state.dart';
 import 'package:pocket_party/features/game_rummy/presentation/widgets/card_widget.dart';
 
-/// Displays a player's hand as a horizontally scrollable, overlapping fan of cards.
+/// Displays the player's hand as an overlapping fan of cards
+/// with full **drag-and-drop** support.
 ///
-/// Cards overlap so all 13-14 fit on screen. Tapping a card selects it
-/// (pops it up); tapping another card swaps them.
-class PlayerHandWidget extends StatelessWidget {
+/// • Long-press a card to start dragging (80ms quick delay).
+/// • Drop on another card to reorder (inserts at that position).
+/// • Drop on the discard pile (handled by [GameTableWidget]) to discard.
+/// • Tap a card to select it (visual pop-up); double-tap to discard.
+class PlayerHandWidget extends StatefulWidget {
   final List<PlayingCard> hand;
   final int? selectedIndex;
   final PlayingCard? wildJokerCard;
   final bool isInteractive;
-  final bool isFaceDown;
   final ValueChanged<int>? onCardTap;
+  final void Function(int from, int to)? onReorder;
   final double cardWidth;
 
   const PlayerHandWidget({
@@ -22,81 +26,199 @@ class PlayerHandWidget extends StatelessWidget {
     this.selectedIndex,
     this.wildJokerCard,
     this.isInteractive = true,
-    this.isFaceDown = false,
     this.onCardTap,
+    this.onReorder,
     this.cardWidth = 52,
   });
 
   @override
+  State<PlayerHandWidget> createState() => _PlayerHandWidgetState();
+}
+
+class _PlayerHandWidgetState extends State<PlayerHandWidget> {
+  int? _hoverIndex;
+
+  @override
   Widget build(BuildContext context) {
-    if (hand.isEmpty) {
-      return const SizedBox(
+    if (widget.hand.isEmpty) {
+      return SizedBox(
         height: 80,
         child: Center(
           child: Text(
             'No cards',
-            style: TextStyle(color: Colors.white38, fontSize: 14),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.25), fontSize: 14),
           ),
         ),
       );
     }
 
-    final cardHeight = cardWidth * 1.4;
-    // Calculate overlap: show ~40% of each card except the last
-    final visiblePortion = cardWidth * 0.42;
-    final totalWidth = visiblePortion * (hand.length - 1) + cardWidth;
+    final cardHeight = widget.cardWidth * 1.4;
 
-    return SizedBox(
-      height: cardHeight + 16, // extra space for pop-up on selection
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        physics: const BouncingScrollPhysics(),
-        child: SizedBox(
-          width: totalWidth,
-          height: cardHeight + 16,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: List.generate(hand.length, (i) {
-              final isSelected = selectedIndex == i;
-              final card = hand[i];
-              final xOffset = visiblePortion * i;
-              final yOffset = isSelected ? 0.0 : 12.0;
-
-              return Positioned(
-                left: xOffset,
-                top: yOffset,
-                child: GestureDetector(
-                  onTap: isInteractive ? () => onCardTap?.call(i) : null,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOut,
-                    transform: Matrix4.translationValues(0.0, isSelected ? -4.0 : 0.0, 0.0),
-                    child: PlayingCardWidget(
-                      card: isFaceDown ? null : card,
-                      isFaceDown: isFaceDown,
-                      isSelected: isSelected,
-                      isWildJoker: !isFaceDown &&
-                          wildJokerCard != null &&
-                          card.isWildJoker(wildJokerCard),
-                      width: cardWidth,
-                    ).animate(delay: (i * 30).ms).fade(duration: 200.ms).slideY(
-                      begin: isFaceDown ? -0.3 : 0.3,
-                      duration: 250.ms,
-                      curve: Curves.easeOut,
+    return Container(
+      height: cardHeight + 24,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.transparent,
+            const Color(0xFF1E1E36).withValues(alpha: 0.4),
+          ],
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            physics: const BouncingScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: constraints.maxWidth,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      widget.hand.length,
+                      (i) => _buildCardSlot(i, cardHeight),
                     ),
                   ),
                 ),
-              );
-            }),
-          ),
-        ),
+              ),
+            ),
+          );
+        },
       ),
+    );
+  }
+
+  Widget _buildCardSlot(int i, double cardHeight) {
+    final card = widget.hand[i];
+    final isSelected = widget.selectedIndex == i;
+    final isHovered = _hoverIndex == i;
+    final isWild = widget.wildJokerCard != null &&
+        card.isWildJoker(widget.wildJokerCard);
+
+    final cardWidget = PlayingCardWidget(
+      card: card,
+      width: widget.cardWidth,
+      isSelected: isSelected,
+      isWildJoker: isWild,
+    );
+
+    final isLast = i == widget.hand.length - 1;
+
+    if (!widget.isInteractive) {
+      return Align(
+        widthFactor: isLast ? 1.0 : 0.65,
+        alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 1),
+          child: cardWidget,
+        ),
+      );
+    }
+
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (details) {
+        if (details.data == i) return false;
+        setState(() => _hoverIndex = i);
+        return true;
+      },
+      onLeave: (_) {
+        if (_hoverIndex == i) setState(() => _hoverIndex = null);
+      },
+      onAcceptWithDetails: (details) {
+        HapticFeedback.mediumImpact();
+        widget.onReorder?.call(details.data, i);
+        setState(() {
+          _hoverIndex = null;
+        });
+      },
+      builder: (context, candidateData, rejectedData) {
+        return Align(
+          widthFactor: isHovered || isLast ? 1.0 : 0.65,
+          alignment: Alignment.centerLeft,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            margin: const EdgeInsets.symmetric(horizontal: 1),
+            child: LongPressDraggable<int>(
+              data: i,
+              delay: const Duration(milliseconds: 80),
+              hapticFeedbackOnStart: true,
+              maxSimultaneousDrags: 1,
+              feedback: SizedBox(
+                width: widget.cardWidth * 1.12,
+                height: cardHeight * 1.12,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF00F2FE).withValues(alpha: 0.35),
+                          blurRadius: 16,
+                          spreadRadius: 2,
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: PlayingCardWidget(
+                      card: card,
+                      width: widget.cardWidth,
+                      isSelected: true,
+                      isWildJoker: isWild,
+                    ),
+                  ),
+                ),
+              ),
+              childWhenDragging: Opacity(
+                opacity: 0.25,
+                child: Container(
+                  width: widget.cardWidth,
+                  height: cardHeight,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: const Color(0xFF00F2FE).withValues(alpha: 0.4),
+                      width: 1.5,
+                    ),
+                    color: const Color(0xFF00F2FE).withValues(alpha: 0.08),
+                  ),
+                ),
+              ),
+              child: GestureDetector(
+                onTap: () => widget.onCardTap?.call(i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  transform: Matrix4.translationValues(
+                    0,
+                    isSelected ? -8.0 : 0.0,
+                    0,
+                  ),
+                  child: cardWidget,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
 
-/// Compact view of opponent's face-down hand shown at the top of the screen.
+/// Compact opponent hand for landscape — shows face-down cards in a tight row.
 class OpponentHandWidget extends StatelessWidget {
   final int cardCount;
   final double cardWidth;
@@ -104,14 +226,14 @@ class OpponentHandWidget extends StatelessWidget {
   const OpponentHandWidget({
     super.key,
     required this.cardCount,
-    this.cardWidth = 32,
+    this.cardWidth = 28,
   });
 
   @override
   Widget build(BuildContext context) {
-    final visiblePortion = cardWidth * 0.3;
-    final totalWidth = visiblePortion * (cardCount - 1) + cardWidth;
     final cardHeight = cardWidth * 1.4;
+    final overlap = cardWidth * 0.55;
+    final totalWidth = overlap * (cardCount - 1) + cardWidth;
 
     return SizedBox(
       height: cardHeight + 4,
@@ -122,15 +244,11 @@ class OpponentHandWidget extends StatelessWidget {
           child: Stack(
             children: List.generate(cardCount, (i) {
               return Positioned(
-                left: visiblePortion * i,
+                left: overlap * i,
                 child: PlayingCardWidget(
                   isFaceDown: true,
                   width: cardWidth,
-                ).animate(delay: (i * 20).ms).fade(duration: 150.ms).slideY(
-                  begin: -0.2,
-                  duration: 200.ms,
-                  curve: Curves.easeOut,
-                ),
+                ).animate(delay: (i * 15).ms).fade(duration: 120.ms),
               );
             }),
           ),
