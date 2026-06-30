@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 // Each game has exactly ONE import here. Adding a game = add 1 import + 1 entry.
 // Removing a game = delete 1 import + 1 entry + delete the game folder.
 import 'package:pocket_party/features/game_chess/presentation/screens/chess_screen.dart';
+import 'package:pocket_party/features/game_rummy/presentation/screens/rummy_screen.dart';
+
 
 // ─────────────────────────────────────────────────────────────
 // Game Definition
@@ -91,7 +93,23 @@ final List<GameDefinition> gameRegistry = [
     networkScreenBuilder: ({required bool isHost}) =>
         ChessScreen(isNetworked: true, isHost: isHost),
   ),
+  GameDefinition(
+    id: 'rummy',
+    displayName: 'Indian Rummy',
+    icon: Icons.style,
+    gradient: const LinearGradient(
+      colors: [Color(0xFFFF8008), Color(0xFFFFC837)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    ),
+    supportsNetwork: true,
+    supportsSinglePhone: true,
+    singlePhoneScreenBuilder: () => const RummyScreen(isNetworked: false),
+    networkScreenBuilder: ({required bool isHost}) =>
+        RummyScreen(isNetworked: true, isHost: isHost),
+  ),
 ];
+
 
 // ─────────────────────────────────────────────────────────────
 // Lookup helper
